@@ -1,5 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
+import { callScheduler, callRouter, priorityFromReason, durationMinutes } from '../engines.js';
+import { getResourceNode } from '../utils/nodeMap.js';
 
 const router = express.Router();
 
@@ -7,6 +9,11 @@ const router = express.Router();
 // POST /api/bookings
 // Body: { userId, resourceId, date, startTime, endTime,
 //         sourceNodeId, reasonId, reasonLabel, notes }
+//
+// Orchestrates:
+//   1. Team B → compute route from sourceNodeId to resource's node
+//   2. Team A → submit scheduling request + get queue position
+//   3. Team C → commit booking via stored procedure
 // ----------------------------------------------------------------
 router.post('/', async (req, res) => {
   const {
@@ -15,6 +22,8 @@ router.post('/', async (req, res) => {
     date,
     startTime,
     endTime,
+    sourceNodeId,
+    reasonId,
     reasonLabel,
     notes,
   } = req.body || {};
@@ -25,9 +34,53 @@ router.post('/', async (req, res) => {
     });
   }
 
+  // ---------- Step 0: Resolve resource's node ----------
+  const nodeInfo = await getResourceNode(resourceId);
+  if (!nodeInfo || !nodeInfo.nodeId) {
+    return res.status(400).json({
+      message: `No campus node mapped for resource ${resourceId}`,
+    });
+  }
+
+  const destNodeId = nodeInfo.nodeId;
+  const labId = nodeInfo.nodeId; // Team A uses the same code (L1, C1, CH1...)
+
+  // ---------- Step 1: Call Team B (routing) ----------
+  let routeResult = null;
+  if (sourceNodeId && sourceNodeId !== destNodeId) {
+    const routeResp = await callRouter({
+      sourceNodeId,
+      destNodeId,
+    });
+    if (routeResp.ok) {
+      routeResult = routeResp.data;
+    } else {
+      console.warn('[bookings] Router failed:', routeResp.error);
+    }
+  }
+
+  // ---------- Step 2: Call Team A (scheduler) ----------
+  const priority = priorityFromReason(reasonId);
+  const duration = durationMinutes(startTime, endTime);
+
+  const scheduleResp = await callScheduler({
+    userId: String(userId),
+    labId,
+    computers: 1, // default; can be improved later
+    duration,
+    priority,
+  });
+
+  let scheduleResult = null;
+  if (scheduleResp.ok) {
+    scheduleResult = scheduleResp.data;
+  } else {
+    console.warn('[bookings] Scheduler failed:', scheduleResp.error);
+  }
+
+  // ---------- Step 3: Commit booking via Team C stored procedure ----------
   try {
-    // 1. Find the slot that matches startTime / endTime
-    //    Normalize "10:00" → "10:00:00" to match MySQL TIME format
+    // Find the slot that matches startTime / endTime (normalize HH:MM → HH:MM:SS)
     const normalizeTime = (t) => {
       const s = String(t).trim();
       if (/^\d{2}:\d{2}$/.test(s)) return `${s}:00`;
@@ -44,24 +97,23 @@ router.post('/', async (req, res) => {
     }
     const slotId = slotRows[0].SlotId;
 
-    // 2. Compose the purpose string from reason + notes
     const purpose = [reasonLabel, notes].filter(Boolean).join(' — ').slice(0, 255) || 'Booking';
 
-    // 3. Call the stored procedure
     const [result] = await pool.query(
       `CALL CREATE_BOOKING_TRANSACTION(?, ?, ?, ?, ?)`,
       [Number(userId), Number(resourceId), slotId, date, purpose]
     );
 
-    // result[0] = [{ BookingId, Message }]
     const first = Array.isArray(result) && Array.isArray(result[0]) ? result[0][0] : null;
 
+    // ---------- Step 4: Return orchestrated response ----------
     return res.status(201).json({
       bookingId: first ? first.BookingId : null,
       message: first ? first.Message : 'Booking created',
+      route: routeResult,
+      schedule: scheduleResult,
     });
   } catch (err) {
-    // SIGNAL SQLSTATE '45000' errors come back with err.sqlMessage
     if (err.sqlState === '45000' || err.code === 'ER_SIGNAL_EXCEPTION') {
       return res.status(409).json({ message: err.sqlMessage || 'Booking rejected' });
     }
