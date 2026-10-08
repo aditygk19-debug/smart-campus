@@ -27,9 +27,16 @@ router.post('/', async (req, res) => {
 
   try {
     // 1. Find the slot that matches startTime / endTime
+    //    Normalize "10:00" → "10:00:00" to match MySQL TIME format
+    const normalizeTime = (t) => {
+      const s = String(t).trim();
+      if (/^\d{2}:\d{2}$/.test(s)) return `${s}:00`;
+      return s;
+    };
+
     const [slotRows] = await pool.query(
       `SELECT SlotId FROM TIME_SLOT WHERE StartTime = ? AND EndTime = ? LIMIT 1`,
-      [startTime, endTime]
+      [normalizeTime(startTime), normalizeTime(endTime)]
     );
 
     if (slotRows.length === 0) {
