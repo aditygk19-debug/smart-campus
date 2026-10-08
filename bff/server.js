@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { testConnection } from './db.js';
 import departmentsRouter from './routes/departments.js';
 import authRouter from './routes/auth.js';
+import resourceTypesRouter from './routes/resource-types.js';
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/departments', departmentsRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/departments/:deptId/resource-types', resourceTypesRouter);
 
 // ---- Start server ----
 async function start() {
