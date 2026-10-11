@@ -12,89 +12,47 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * TeamAHttpServer — HTTP wrapper for Team A's OS Scheduler Engine.
+ * TeamAHttpServer — HTTP service for Team A (OS Scheduling engine).
  *
- * Exposes:
- *   GET  /health   → basic status
- *   GET  /labs     → list all registered labs
- *   POST /schedule → submit a request + run scheduler + return decision
+ * Talks directly to MySQL (smartcampus) via JDBC.
  *
- * Built by Team D (Engine 4) for integration. Delegates all logic to TeamAEngine.
+ * Endpoints:
+ *   GET  /health    — service status + DB status
+ *   GET  /labs      — list all registered lab/classroom resources
+ *   POST /schedule  — create a booking request (FCFS + priority)
+ *   POST /waitlist  — add a waitlist entry for an occupied resource
+ *   POST /promote   — promote highest-priority waiter after a cancellation
+ *   GET  /queue     — list current waitlist for a resource+slot+date
  */
 public class TeamAHttpServer {
 
     private static final int PORT = 8090;
-    private static final TeamAEngine engine = new TeamAEngine();
 
     public static void main(String[] args) throws IOException {
-
-        registerAllResources();
+        System.out.println("DB connectivity: " + (Db.testConnection() ? "OK" : "FAILED"));
 
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
-        server.createContext("/health", new HealthHandler());
-        server.createContext("/labs", new LabsHandler());
+        server.createContext("/health",   new HealthHandler());
+        server.createContext("/labs",     new LabsHandler());
         server.createContext("/schedule", new ScheduleHandler());
+        server.createContext("/waitlist", new WaitlistHandler());
+        server.createContext("/promote",  new PromoteHandler());
+        server.createContext("/queue",    new QueueHandler());
         server.setExecutor(null);
         server.start();
 
-        System.out.println("✅ Team A HTTP Server running on http://localhost:" + PORT);
-        System.out.println("   Endpoints:");
-        System.out.println("   GET  http://localhost:" + PORT + "/health");
-        System.out.println("   GET  http://localhost:" + PORT + "/labs");
-        System.out.println("   POST http://localhost:" + PORT + "/schedule");
+        System.out.println("Team A HTTP Server running on http://localhost:" + PORT);
+        System.out.println("   GET  /health");
+        System.out.println("   GET  /labs");
+        System.out.println("   POST /schedule");
+        System.out.println("   POST /waitlist");
+        System.out.println("   POST /promote");
+        System.out.println("   GET  /queue");
     }
 
     // ----------------------------------------------------------------
-    // Register all 23 resources (same as Main.java)
+    // /health
     // ----------------------------------------------------------------
-    private static void registerAllResources() {
-
-        // CSE Labs
-        engine.addLab("L1", "CSE", "CSE Lab 1", 30);
-        engine.addLab("L2", "CSE", "CSE Lab 2", 30);
-        engine.addLab("L3", "CSE", "CSE Lab 3", 30);
-        engine.addLab("L4", "CSE", "CSE Lab 4", 30);
-
-        // Electrical Labs
-        engine.addLab("EL1", "ELECTRICAL", "Electrical Lab 1", 30);
-        engine.addLab("EL2", "ELECTRICAL", "Electrical Lab 2", 30);
-
-        // AIML Labs
-        engine.addLab("AL1", "AIML", "AIML Lab 1", 30);
-        engine.addLab("AL2", "AIML", "AIML Lab 2", 30);
-        engine.addLab("AL3", "AIML", "AIML Lab 3", 30);
-
-        // Mechanical Labs
-        engine.addLab("ML1", "MECHANICAL", "Mechanical Lab 1", 30);
-        engine.addLab("ML2", "MECHANICAL", "Mechanical Lab 2", 30);
-
-        // CSE Classrooms + Conference Hall
-        engine.addLab("C1", "CSE", "CSE Classroom 1", 60);
-        engine.addLab("C2", "CSE", "CSE Classroom 2", 60);
-        engine.addLab("C3", "CSE", "CSE Classroom 3", 60);
-        engine.addLab("CH1", "CSE", "Conference Hall", 100);
-
-        // Electrical Classrooms
-        engine.addLab("EC1", "ELECTRICAL", "Electrical Classroom 1", 60);
-        engine.addLab("EC2", "ELECTRICAL", "Electrical Classroom 2", 60);
-        engine.addLab("EC3", "ELECTRICAL", "Electrical Classroom 3", 60);
-
-        // AIML Classrooms
-        engine.addLab("AC1", "AIML", "AIML Classroom 1", 60);
-        engine.addLab("AC2", "AIML", "AIML Classroom 2", 60);
-        engine.addLab("AC3", "AIML", "AIML Classroom 3", 60);
-
-        // Mechanical Classrooms
-        engine.addLab("MC1", "MECHANICAL", "Mechanical Classroom 1", 60);
-        engine.addLab("MC2", "MECHANICAL", "Mechanical Classroom 2", 60);
-
-        System.out.println("Registered 23 resources in TeamAEngine.");
-    }
-
-    // ----------------------------------------------------------------
-    // Handlers
-    // ----------------------------------------------------------------
-
     static class HealthHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange ex) throws IOException {
@@ -102,10 +60,15 @@ public class TeamAHttpServer {
                 sendJson(ex, 405, "{\"error\":\"Method not allowed\"}");
                 return;
             }
-            sendJson(ex, 200, "{\"status\":\"ok\",\"service\":\"team-a-scheduler\"}");
+            boolean db = Db.testConnection();
+            String json = "{\"status\":\"ok\",\"service\":\"team-a-scheduler\",\"db\":" + db + "}";
+            sendJson(ex, 200, json);
         }
     }
 
+    // ----------------------------------------------------------------
+    // /labs
+    // ----------------------------------------------------------------
     static class LabsHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange ex) throws IOException {
@@ -113,7 +76,6 @@ public class TeamAHttpServer {
                 sendJson(ex, 405, "{\"error\":\"Method not allowed\"}");
                 return;
             }
-            // Static list (built from the same data above) — simple & fast
             String json = "[" +
                 "{\"id\":\"L1\",\"dept\":\"CSE\",\"name\":\"CSE Lab 1\",\"capacity\":30}," +
                 "{\"id\":\"L2\",\"dept\":\"CSE\",\"name\":\"CSE Lab 2\",\"capacity\":30}," +
@@ -143,6 +105,10 @@ public class TeamAHttpServer {
         }
     }
 
+    // ----------------------------------------------------------------
+    // /schedule
+    // Body: { userId, labId, date, startTime, endTime, purpose, priority }
+    // ----------------------------------------------------------------
     static class ScheduleHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange ex) throws IOException {
@@ -152,50 +118,175 @@ public class TeamAHttpServer {
             }
 
             String body = readBody(ex);
+            Integer userId = extractInt(body, "userId");
+            String labId = extractString(body, "labId");
+            String date = extractString(body, "date");
+            String startTime = extractString(body, "startTime");
+            String endTime = extractString(body, "endTime");
+            String purpose = extractString(body, "purpose");
+            Integer priority = extractInt(body, "priority");
 
-            String userId   = extractString(body, "userId");
-            String labId    = extractString(body, "labId");
-            Integer computers = extractInt(body, "computers");
-            Integer duration  = extractInt(body, "duration");
-            Integer priority  = extractInt(body, "priority");
+            if (userId == null || labId == null || date == null
+                    || startTime == null || endTime == null) {
+                sendJson(ex, 400, "{\"error\":\"userId, labId, date, startTime, endTime required\"}");
+                return;
+            }
+            if (priority == null) priority = 2;
+            if (purpose == null) purpose = "Booking";
 
-            if (userId == null || labId == null || computers == null
-                    || duration == null || priority == null) {
-                sendJson(ex, 400, "{\"error\":\"userId, labId, computers, duration, priority required\"}");
+            BookingService.Result r = BookingService.createOrWaitlist(
+                    userId, labId, date, startTime, endTime, purpose, priority);
+
+            String json = "{"
+                + "\"ok\":" + r.ok + ","
+                + "\"bookingId\":" + r.bookingId + ","
+                + "\"status\":\"" + escape(r.status) + "\","
+                + "\"message\":\"" + escape(r.message) + "\","
+                + "\"waitlistPosition\":" + r.waitlistPosition + ","
+                + "\"priority\":" + r.priority
+                + "}";
+
+            sendJson(ex, r.ok ? 201 : 409, json);
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // /waitlist — explicit waitlist add (same as schedule but forces Waitlisted)
+    // ----------------------------------------------------------------
+    static class WaitlistHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange ex) throws IOException {
+            if (!"POST".equals(ex.getRequestMethod())) {
+                sendJson(ex, 405, "{\"error\":\"Method not allowed\"}");
+                return;
+            }
+
+            String body = readBody(ex);
+            Integer userId = extractInt(body, "userId");
+            String labId = extractString(body, "labId");
+            String date = extractString(body, "date");
+            String startTime = extractString(body, "startTime");
+            String endTime = extractString(body, "endTime");
+            String purpose = extractString(body, "purpose");
+            Integer priority = extractInt(body, "priority");
+
+            if (userId == null || labId == null || date == null
+                    || startTime == null || endTime == null) {
+                sendJson(ex, 400, "{\"error\":\"userId, labId, date, startTime, endTime required\"}");
+                return;
+            }
+            if (priority == null) priority = 2;
+            if (purpose == null) purpose = "Waitlist request";
+
+            BookingService.Result r = BookingService.createOrWaitlist(
+                    userId, labId, date, startTime, endTime, purpose, priority);
+
+            String json = "{"
+                + "\"ok\":" + r.ok + ","
+                + "\"bookingId\":" + r.bookingId + ","
+                + "\"status\":\"" + escape(r.status) + "\","
+                + "\"message\":\"" + escape(r.message) + "\","
+                + "\"waitlistPosition\":" + r.waitlistPosition
+                + "}";
+
+            sendJson(ex, r.ok ? 201 : 409, json);
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // /promote
+    // Body: { labId, date, startTime, endTime }
+    // ----------------------------------------------------------------
+    static class PromoteHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange ex) throws IOException {
+            if (!"POST".equals(ex.getRequestMethod())) {
+                sendJson(ex, 405, "{\"error\":\"Method not allowed\"}");
+                return;
+            }
+
+            String body = readBody(ex);
+            String labId = extractString(body, "labId");
+            String date = extractString(body, "date");
+            String startTime = extractString(body, "startTime");
+            String endTime = extractString(body, "endTime");
+
+            if (labId == null || date == null || startTime == null || endTime == null) {
+                sendJson(ex, 400, "{\"error\":\"labId, date, startTime, endTime required\"}");
+                return;
+            }
+
+            Map<String, Object> out = BookingService.promoteAfterCancel(labId, date, startTime, endTime);
+
+            StringBuilder sb = new StringBuilder("{");
+            boolean first = true;
+            for (Map.Entry<String, Object> e : out.entrySet()) {
+                if (!first) sb.append(",");
+                first = false;
+                sb.append("\"").append(e.getKey()).append("\":");
+                Object v = e.getValue();
+                if (v instanceof Boolean || v instanceof Integer) sb.append(v);
+                else sb.append("\"").append(escape(String.valueOf(v))).append("\"");
+            }
+            sb.append("}");
+            sendJson(ex, 200, sb.toString());
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // /queue?labId=L1&date=2026-10-15&startTime=10:00&endTime=12:00
+    // ----------------------------------------------------------------
+    static class QueueHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange ex) throws IOException {
+            if (!"GET".equals(ex.getRequestMethod())) {
+                sendJson(ex, 405, "{\"error\":\"Method not allowed\"}");
+                return;
+            }
+            Map<String, String> q = parseQuery(ex.getRequestURI().getQuery());
+            String labId = q.get("labId");
+            String date = q.get("date");
+            String startTime = q.get("startTime");
+            String endTime = q.get("endTime");
+            if (labId == null || date == null || startTime == null || endTime == null) {
+                sendJson(ex, 400, "{\"error\":\"labId, date, startTime, endTime required\"}");
                 return;
             }
 
             try {
-                // Submit request
-                SchedulingRequest req = engine.submitRequest(
-                        userId, labId, computers, duration, priority
-                );
-
-                if (req == null) {
-                    sendJson(ex, 400, "{\"error\":\"Lab does not exist\"}");
+                int resourceId = Db.findResourceIdByNode(labId);
+                int slotId = Db.findSlotId(startTime, endTime);
+                if (resourceId < 0 || slotId < 0) {
+                    sendJson(ex, 200, "[]");
                     return;
                 }
-
-                // Run PRIORITY scheduler for that lab
-                engine.runScheduler(labId, SchedulingPolicy.PRIORITY);
-
-                // Build response
-                String json = String.format(
-                        "{\"requestId\":\"%s\",\"userId\":\"%s\",\"labId\":\"%s\","
-                      + "\"state\":\"%s\",\"queuePosition\":%d,\"priority\":%d,"
-                      + "\"computers\":%d,\"duration\":%d}",
-                        req.getRequestId(),
-                        req.getUserId(),
-                        req.getLabId(),
-                        req.getState(),
-                        req.getQueuePosition(),
-                        req.getPriority(),
-                        req.getRequiredComputers(),
-                        req.getDurationMinutes()
-                );
-
-                sendJson(ex, 201, json);
-
+                String sql =
+                    "SELECT BookingId, UserId, Priority, WaitlistPosition " +
+                    "FROM BOOKINGS " +
+                    "WHERE ResourceId=? AND SlotId=? AND BookingDate=? AND Status='Waitlisted' " +
+                    "ORDER BY Priority ASC, BookingId ASC";
+                StringBuilder sb = new StringBuilder("[");
+                boolean first = true;
+                try (java.sql.Connection c = Db.get();
+                     java.sql.PreparedStatement ps = c.prepareStatement(sql)) {
+                    ps.setInt(1, resourceId);
+                    ps.setInt(2, slotId);
+                    ps.setString(3, date);
+                    try (java.sql.ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            if (!first) sb.append(",");
+                            first = false;
+                            sb.append("{")
+                              .append("\"bookingId\":").append(rs.getInt("BookingId")).append(",")
+                              .append("\"userId\":").append(rs.getInt("UserId")).append(",")
+                              .append("\"priority\":").append(rs.getInt("Priority")).append(",")
+                              .append("\"position\":").append(rs.getInt("WaitlistPosition"))
+                              .append("}");
+                        }
+                    }
+                }
+                sb.append("]");
+                sendJson(ex, 200, sb.toString());
             } catch (Exception e) {
                 sendJson(ex, 500, "{\"error\":\"" + escape(e.getMessage()) + "\"}");
             }
@@ -205,7 +296,6 @@ public class TeamAHttpServer {
     // ----------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------
-
     private static String readBody(HttpExchange ex) throws IOException {
         try (InputStream is = ex.getRequestBody()) {
             return new String(is.readAllBytes(), StandardCharsets.UTF_8);
@@ -220,6 +310,18 @@ public class TeamAHttpServer {
     private static Integer extractInt(String json, String key) {
         Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+)").matcher(json);
         return m.find() ? Integer.parseInt(m.group(1)) : null;
+    }
+
+    private static Map<String, String> parseQuery(String query) {
+        Map<String, String> map = new HashMap<>();
+        if (query == null) return map;
+        for (String pair : query.split("&")) {
+            int i = pair.indexOf('=');
+            if (i > 0) {
+                map.put(pair.substring(0, i), pair.substring(i + 1));
+            }
+        }
+        return map;
     }
 
     private static String escape(String s) {

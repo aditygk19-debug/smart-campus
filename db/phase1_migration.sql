@@ -479,3 +479,73 @@ DELIMITER ;
 INSERT INTO USERS (UserId, Password, Role, Status)
 SELECT 99999, 'admin123', 'Admin', 'Active'
 WHERE NOT EXISTS (SELECT 1 FROM USERS WHERE Role = 'Admin');
+
+-- ------------------------------------------------------------
+-- 6. Fix BOOKINGS constraints to allow multiple waitlist rows
+-- ------------------------------------------------------------
+
+-- 6a. Drop the old CHECK that only allowed Pending/Confirmed/Cancelled
+SET @chk_exists := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = 'smartcampus'
+    AND TABLE_NAME = 'BOOKINGS'
+    AND CONSTRAINT_NAME = 'bookings_chk_1'
+);
+SET @sql := IF(@chk_exists > 0,
+  'ALTER TABLE BOOKINGS DROP CHECK bookings_chk_1',
+  'SELECT ''bookings_chk_1 already removed'' AS msg'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 6b. Drop UNIQUE KEY on (ResourceId, SlotId, BookingDate) if present
+SET @uq_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = 'smartcampus'
+    AND TABLE_NAME = 'BOOKINGS'
+    AND INDEX_NAME = 'ResourceId'
+    AND NON_UNIQUE = 0
+);
+SET @sql := IF(@uq_exists > 0,
+  'ALTER TABLE BOOKINGS DROP FOREIGN KEY bookings_ibfk_2',
+  'SELECT ''FK already adjusted'' AS msg'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @uq_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = 'smartcampus'
+    AND TABLE_NAME = 'BOOKINGS'
+    AND INDEX_NAME = 'ResourceId'
+    AND NON_UNIQUE = 0
+);
+SET @sql := IF(@uq_exists > 0,
+  'ALTER TABLE BOOKINGS DROP INDEX ResourceId',
+  'SELECT ''UNIQUE KEY already removed'' AS msg'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 6c. Re-add FK pointing at a regular (non-unique) index
+SET @fk_exists := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = 'smartcampus'
+    AND TABLE_NAME = 'BOOKINGS'
+    AND CONSTRAINT_NAME = 'bookings_ibfk_2'
+);
+SET @sql := IF(@fk_exists = 0,
+  'ALTER TABLE BOOKINGS ADD CONSTRAINT bookings_ibfk_2 FOREIGN KEY (ResourceId) REFERENCES RESOURCES(ResourceId)',
+  'SELECT ''FK already present'' AS msg'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 6d. Add the new CHECK allowing all 5 statuses
+SET @chk_new := (
+  SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = 'smartcampus'
+    AND TABLE_NAME = 'BOOKINGS'
+    AND CONSTRAINT_NAME = 'bookings_chk_status'
+);
+SET @sql := IF(@chk_new = 0,
+  'ALTER TABLE BOOKINGS ADD CONSTRAINT bookings_chk_status CHECK (Status IN (''Pending'',''Confirmed'',''Cancelled'',''Waitlisted'',''Rejected''))',
+  'SELECT ''bookings_chk_status already present'' AS msg'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

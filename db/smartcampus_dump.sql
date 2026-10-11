@@ -42,7 +42,7 @@ CREATE TABLE `audit_log` (
   PRIMARY KEY (`AuditId`),
   KEY `idx_entity` (`EntityType`,`EntityId`),
   KEY `idx_user` (`UserId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -51,6 +51,7 @@ CREATE TABLE `audit_log` (
 
 LOCK TABLES `audit_log` WRITE;
 /*!40000 ALTER TABLE `audit_log` DISABLE KEYS */;
+INSERT INTO `audit_log` VALUES (1,2403163,'CREATE_BOOKING','BOOKING',26,NULL,'Confirmed priority=2','2026-10-11 19:08:20'),(2,2403163,'CREATE_BOOKING','BOOKING',28,NULL,'Confirmed priority=2','2026-10-11 19:11:09'),(3,2403173,'WAITLIST_BOOKING','BOOKING',29,NULL,'position=1 priority=2','2026-10-11 19:11:14'),(4,2403173,'PROMOTE_WAITLIST','BOOKING',29,NULL,'Confirmed','2026-10-11 19:11:37');
 /*!40000 ALTER TABLE `audit_log` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -72,14 +73,14 @@ CREATE TABLE `bookings` (
   `Priority` int DEFAULT '2',
   `WaitlistPosition` int DEFAULT NULL,
   PRIMARY KEY (`BookingId`),
-  UNIQUE KEY `ResourceId` (`ResourceId`,`SlotId`,`BookingDate`),
   KEY `UserId` (`UserId`),
   KEY `SlotId` (`SlotId`),
+  KEY `idx_resource` (`ResourceId`),
   CONSTRAINT `bookings_ibfk_1` FOREIGN KEY (`UserId`) REFERENCES `users` (`UserId`),
   CONSTRAINT `bookings_ibfk_2` FOREIGN KEY (`ResourceId`) REFERENCES `resources` (`ResourceId`),
   CONSTRAINT `bookings_ibfk_3` FOREIGN KEY (`SlotId`) REFERENCES `time_slot` (`SlotId`),
-  CONSTRAINT `bookings_chk_1` CHECK ((`Status` in (_utf8mb4'Pending',_utf8mb4'Confirmed',_utf8mb4'Cancelled')))
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `bookings_chk_status` CHECK ((`Status` in (_utf8mb4'Pending',_utf8mb4'Confirmed',_utf8mb4'Cancelled',_utf8mb4'Waitlisted',_utf8mb4'Rejected')))
+) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -88,7 +89,7 @@ CREATE TABLE `bookings` (
 
 LOCK TABLES `bookings` WRITE;
 /*!40000 ALTER TABLE `bookings` DISABLE KEYS */;
-INSERT INTO `bookings` VALUES (2,2403173,5,2,'2026-10-08','Practical / Lab Session ╬ô├ç├╢ ui','Confirmed',2,NULL),(3,2403173,6,4,'2026-10-15','Project Work ╬ô├ç├╢ asd','Confirmed',2,NULL),(4,2403173,6,2,'2026-10-08','Project Work ╬ô├ç├╢ asd','Cancelled',2,NULL),(5,2403163,17,2,'2026-10-09','Workshop / Seminar — asdfgh','Cancelled',2,NULL),(6,2403163,5,6,'2026-10-09','Practical / Lab Session — 123','Confirmed',2,NULL),(7,2403163,17,6,'2026-10-14','Practical / Lab Session — zxc','Confirmed',2,NULL),(8,2403163,5,2,'2026-10-09','Exam / Assessment — ASDDFG','Cancelled',2,NULL),(9,2403173,5,6,'2026-10-14','Lecture / Theory Class — ASD','Confirmed',2,NULL),(10,2403163,11,6,'2026-10-14','Exam / Assessment — ASDFGHJ','Cancelled',2,NULL),(11,2403163,12,6,'2026-10-14','Exam / Assessment','Confirmed',2,NULL),(12,2403163,5,6,'2026-10-22','Exam / Assessment — ASDF','Confirmed',2,NULL),(15,2403163,6,6,'2026-10-22','Lecture / Theory Class — DFGH','Confirmed',2,NULL),(22,2403163,5,8,'2026-10-09','Exam / Assessment — jkkk','Confirmed',2,NULL),(23,2403163,5,6,'2026-10-21','Lecture / Theory Class — asd','Confirmed',2,NULL),(24,2403163,5,2,'2026-10-12','Lecture / Theory Class','Confirmed',2,NULL),(25,2403163,6,2,'2026-10-12','Practical / Lab Session','Confirmed',2,NULL);
+INSERT INTO `bookings` VALUES (2,2403173,5,2,'2026-10-08','Practical / Lab Session ╬ô├ç├╢ ui','Confirmed',2,NULL),(3,2403173,6,4,'2026-10-15','Project Work ╬ô├ç├╢ asd','Confirmed',2,NULL),(4,2403173,6,2,'2026-10-08','Project Work ╬ô├ç├╢ asd','Cancelled',2,NULL),(5,2403163,17,2,'2026-10-09','Workshop / Seminar — asdfgh','Cancelled',2,NULL),(6,2403163,5,6,'2026-10-09','Practical / Lab Session — 123','Confirmed',2,NULL),(7,2403163,17,6,'2026-10-14','Practical / Lab Session — zxc','Confirmed',2,NULL),(8,2403163,5,2,'2026-10-09','Exam / Assessment — ASDDFG','Cancelled',2,NULL),(9,2403173,5,6,'2026-10-14','Lecture / Theory Class — ASD','Confirmed',2,NULL),(10,2403163,11,6,'2026-10-14','Exam / Assessment — ASDFGHJ','Cancelled',2,NULL),(11,2403163,12,6,'2026-10-14','Exam / Assessment','Confirmed',2,NULL),(12,2403163,5,6,'2026-10-22','Exam / Assessment — ASDF','Confirmed',2,NULL),(15,2403163,6,6,'2026-10-22','Lecture / Theory Class — DFGH','Confirmed',2,NULL),(22,2403163,5,8,'2026-10-09','Exam / Assessment — jkkk','Confirmed',2,NULL),(23,2403163,5,6,'2026-10-21','Lecture / Theory Class — asd','Confirmed',2,NULL),(24,2403163,5,2,'2026-10-12','Lecture / Theory Class','Confirmed',2,NULL),(25,2403163,6,2,'2026-10-12','Practical / Lab Session','Confirmed',2,NULL),(26,2403163,1,2,'2026-10-20','Test booking','Cancelled',2,NULL),(28,2403163,1,2,'2026-10-20','Test booking','Confirmed',2,NULL),(29,2403173,1,2,'2026-10-20','Waitlist request','Confirmed',2,NULL);
 /*!40000 ALTER TABLE `bookings` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -220,7 +221,7 @@ CREATE TABLE `notifications` (
   KEY `fk_notif_booking` (`BookingId`),
   CONSTRAINT `fk_notif_booking` FOREIGN KEY (`BookingId`) REFERENCES `bookings` (`BookingId`) ON DELETE SET NULL,
   CONSTRAINT `fk_notif_user` FOREIGN KEY (`UserId`) REFERENCES `users` (`UserId`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -229,6 +230,7 @@ CREATE TABLE `notifications` (
 
 LOCK TABLES `notifications` WRITE;
 /*!40000 ALTER TABLE `notifications` DISABLE KEYS */;
+INSERT INTO `notifications` VALUES (1,2403173,29,'Good news! Your waitlisted booking #29 is now confirmed.',0,'2026-10-11 19:11:37');
 /*!40000 ALTER TABLE `notifications` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -442,9 +444,6 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `CANCEL_BOOKING_TRANSACTION`(IN p_Bo
 BEGIN
     DECLARE v_status VARCHAR(20);
     DECLARE v_userId INT;
-    DECLARE v_resourceId INT;
-    DECLARE v_slotId INT;
-    DECLARE v_bookingDate DATE;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -454,8 +453,7 @@ BEGIN
 
     START TRANSACTION;
 
-    SELECT Status, UserId, ResourceId, SlotId, BookingDate
-    INTO v_status, v_userId, v_resourceId, v_slotId, v_bookingDate
+    SELECT Status, UserId INTO v_status, v_userId
     FROM BOOKINGS
     WHERE BookingId = p_BookingId
     FOR UPDATE;
@@ -478,7 +476,8 @@ BEGIN
     VALUES (v_userId, 'CANCEL_BOOKING', 'BOOKING', p_BookingId, v_status, 'Cancelled');
 
     INSERT INTO NOTIFICATIONS (UserId, BookingId, Message)
-    VALUES (v_userId, p_BookingId, CONCAT('Your booking #', p_BookingId, ' has been cancelled.'));
+    VALUES (v_userId, p_BookingId,
+            CONCAT('Your booking #', p_BookingId, ' has been cancelled.'));
 
     COMMIT;
 
@@ -575,7 +574,8 @@ BEGIN
     SET v_new_id = LAST_INSERT_ID();
 
     INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
-    VALUES (p_UserId, 'CREATE_BOOKING', 'BOOKING', v_new_id, CONCAT('resource=', p_ResourceId, ' date=', p_BookingDate));
+    VALUES (p_UserId, 'CREATE_BOOKING', 'BOOKING', v_new_id,
+            CONCAT('resource=', p_ResourceId, ' date=', p_BookingDate));
 
     COMMIT;
 
@@ -652,7 +652,6 @@ BEGIN
 
     START TRANSACTION;
 
-    
     SELECT BookingId, UserId INTO v_winner_id, v_winner_user
     FROM BOOKINGS
     WHERE ResourceId = p_ResourceId
@@ -665,19 +664,21 @@ BEGIN
 
     IF v_winner_id IS NULL THEN
         COMMIT;
-        SELECT NULL AS PromotedBookingId, NULL AS WinnerUserId, 'No waitlist entries' AS Message;
+        SELECT NULL AS PromotedBookingId, NULL AS WinnerUserId,
+               'No waitlist entries' AS Message;
     ELSE
         UPDATE BOOKINGS
-        SET Status = 'Confirmed',
-            WaitlistPosition = NULL
+        SET Status = 'Confirmed', WaitlistPosition = NULL
         WHERE BookingId = v_winner_id;
 
         INSERT INTO NOTIFICATIONS (UserId, BookingId, Message)
         VALUES (v_winner_user, v_winner_id,
-                CONCAT('Good news! Your waitlisted booking #', v_winner_id, ' is now confirmed.'));
+                CONCAT('Good news! Your waitlisted booking #',
+                       v_winner_id, ' is now confirmed.'));
 
         INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
-        VALUES (v_winner_user, 'PROMOTE_WAITLIST', 'BOOKING', v_winner_id, 'Confirmed');
+        VALUES (v_winner_user, 'PROMOTE_WAITLIST', 'BOOKING',
+                v_winner_id, 'Confirmed');
 
         COMMIT;
 
@@ -768,7 +769,8 @@ BEGIN
     WHERE UserId = p_UserId;
 
     INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
-    VALUES (p_UserId, 'UPDATE_USER', 'USER', p_UserId, CONCAT('role=', p_Role, ' status=', p_Status));
+    VALUES (p_UserId, 'UPDATE_USER', 'USER', p_UserId,
+            CONCAT('role=', p_Role, ' status=', p_Status));
 
     COMMIT;
 
@@ -829,7 +831,6 @@ BEGIN
         SET MESSAGE_TEXT = 'Invalid time slot';
     END IF;
 
-    
     IF EXISTS (
         SELECT 1 FROM BOOKINGS
         WHERE UserId = p_UserId
@@ -845,11 +846,11 @@ BEGIN
     INSERT INTO BOOKINGS
     (UserId, ResourceId, SlotId, BookingDate, Purpose, Status, Priority)
     VALUES
-    (p_UserId, p_ResourceId, p_SlotId, p_BookingDate, p_Purpose, 'Waitlisted', COALESCE(p_Priority, 2));
+    (p_UserId, p_ResourceId, p_SlotId, p_BookingDate, p_Purpose,
+     'Waitlisted', COALESCE(p_Priority, 2));
 
     SET v_new_id = LAST_INSERT_ID();
 
-    
     SELECT COUNT(*) INTO v_position
     FROM BOOKINGS
     WHERE ResourceId = p_ResourceId
@@ -866,7 +867,8 @@ BEGIN
     WHERE BookingId = v_new_id;
 
     INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
-    VALUES (p_UserId, 'WAITLIST_BOOKING', 'BOOKING', v_new_id, CONCAT('position=', v_position + 1, ' priority=', p_Priority));
+    VALUES (p_UserId, 'WAITLIST_BOOKING', 'BOOKING', v_new_id,
+            CONCAT('position=', v_position + 1, ' priority=', p_Priority));
 
     COMMIT;
 
@@ -889,4 +891,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-12  0:27:25
+-- Dump completed on 2026-10-12  0:42:04
