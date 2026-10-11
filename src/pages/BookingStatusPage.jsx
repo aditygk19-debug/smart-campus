@@ -17,7 +17,7 @@ import {
 /* Constants                                                           */
 /* ------------------------------------------------------------------ */
 
-const TABS = ["All", "Pending", "Confirmed", "Cancelled"];
+const TABS = ["All", "Pending", "Confirmed", "Waitlisted", "Cancelled"];
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -66,8 +66,12 @@ function getStatusStyles(status) {
       return { className: "bg-amber-100 text-amber-700", label: "Pending" };
     case "confirmed":
       return { className: "bg-green-100 text-green-700", label: "Confirmed" };
+    case "waitlisted":
+      return { className: "bg-indigo-100 text-indigo-700", label: "Waitlisted" };
     case "cancelled":
       return { className: "bg-red-100 text-red-700", label: "Cancelled" };
+    case "rejected":
+      return { className: "bg-slate-100 text-slate-700", label: "Rejected" };
     default:
       return { className: "bg-slate-100 text-slate-700", label: status || "Unknown" };
   }
@@ -211,6 +215,34 @@ export default function BookingStatusPage({ user, onLogout }) {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+        {/* Waitlist banner */}
+        {successStatus === "waitlisted" && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-5 flex items-start gap-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100">
+              <Clock className="h-6 w-6 text-indigo-600" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-lg font-semibold text-indigo-800">Added to Waitlist</p>
+              <p className="text-sm text-indigo-700">
+                The resource was occupied. You&apos;ll be notified if it becomes available and your
+                request is promoted.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={dismissBanner}
+              aria-label="Dismiss"
+              className="rounded-lg p-1.5 text-indigo-700 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
         {/* Success banner */}
         {successStatus === "confirmed" && (
           <div
@@ -237,7 +269,6 @@ export default function BookingStatusPage({ user, onLogout }) {
             </button>
           </div>
         )}
-
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="mb-5">
           <ol className="flex flex-wrap items-center gap-1 text-sm text-slate-500">
@@ -408,6 +439,9 @@ export default function BookingStatusPage({ user, onLogout }) {
                     <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end">
                       <span className={`rounded-full px-3 py-1 text-xs font-medium ${badge.className}`}>
                         {badge.label}
+                        {statusKey === "Waitlisted" && b.waitlistPosition
+                          ? ` #${b.waitlistPosition}`
+                          : ""}
                       </span>
 
                       {cancellable &&

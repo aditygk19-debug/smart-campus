@@ -170,6 +170,11 @@ export default function ResourceListPage({ user, onLogout }) {
     navigate(`/dashboard/book/${resourceId}?${params.toString()}`);
   }
 
+  function handleWaitlist(resourceId) {
+    const params = new URLSearchParams({ date, startTime, endTime, waitlist: "1" });
+    navigate(`/dashboard/book/${resourceId}?${params.toString()}`);
+  }
+
   const fieldClass =
     "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 " +
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600";
@@ -371,17 +376,15 @@ export default function ResourceListPage({ user, onLogout }) {
                         className={`rounded-full px-3 py-1 text-xs font-medium ${
                           available
                             ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-700"
                         }`}
                       >
-                        {available ? "Available" : "Occupied"}
+                        {available ? "Available" : "Occupied · Waitlist"}
                       </span>
-                      {available && (
-                        <ArrowRight
-                          className="h-5 w-5 text-slate-400"
-                          aria-hidden="true"
-                        />
-                      )}
+                      <ArrowRight
+                        className="h-5 w-5 text-slate-400"
+                        aria-hidden="true"
+                      />
                     </div>
                   </>
                 );
@@ -392,23 +395,22 @@ export default function ResourceListPage({ user, onLogout }) {
 
                 return (
                   <li key={r.resourceId}>
-                    {available ? (
-                      <button
-                        type="button"
-                        aria-label={`Book ${r.resourceName}`}
-                        onClick={() => handleBook(r.resourceId)}
-                        className={`${base} cursor-pointer transition-shadow hover:border-indigo-300 hover:shadow-md`}
-                      >
-                        {content}
-                      </button>
-                    ) : (
-                      <div
-                        aria-disabled="true"
-                        className={`${base} cursor-not-allowed opacity-70`}
-                      >
-                        {content}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      aria-label={
+                        available
+                          ? `Book ${r.resourceName}`
+                          : `Join waitlist for ${r.resourceName}`
+                      }
+                      onClick={() =>
+                        available
+                          ? handleBook(r.resourceId)
+                          : handleWaitlist(r.resourceId)
+                      }
+                      className={`${base} cursor-pointer transition-shadow hover:border-indigo-300 hover:shadow-md`}
+                    >
+                      {content}
+                    </button>
                   </li>
                 );
               })}

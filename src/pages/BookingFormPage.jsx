@@ -138,6 +138,7 @@ export default function BookingFormPage({ user, onLogout }) {
   const date = searchParams.get("date");
   const startTime = searchParams.get("startTime");
   const endTime = searchParams.get("endTime");
+  const isWaitlistMode = searchParams.get("waitlist") === "1";
   const missingParams = !date || !startTime || !endTime;
 
   // State
@@ -260,7 +261,13 @@ export default function BookingFormPage({ user, onLogout }) {
       }
 
       const bookingId = data?.bookingId ?? data?.id ?? "";
-      const params = new URLSearchParams({ status: "confirmed" });
+      const returnedStatus = String(data?.status || "").toLowerCase();
+
+      let banner = "confirmed";
+      if (returnedStatus === "waitlisted") banner = "waitlisted";
+      else if (returnedStatus === "rejected") banner = "rejected";
+
+      const params = new URLSearchParams({ status: banner });
       if (bookingId !== "") params.set("id", String(bookingId));
       navigate(`/dashboard/bookings?${params.toString()}`);
     } catch (err) {
@@ -449,6 +456,18 @@ export default function BookingFormPage({ user, onLogout }) {
                   {/* Request form */}
                   <form onSubmit={handleSubmit} noValidate className="mt-6">
                     <div className={`${cardClass} space-y-5`}>
+                      {isWaitlistMode && (
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                          <div>
+                            <p className="font-medium">This resource is currently occupied.</p>
+                            <p className="text-xs">
+                              Submitting will add you to the waitlist. If the current holder cancels,
+                              the highest-priority waitlisted request will be promoted automatically.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       <h2 className="text-base font-semibold">Request details</h2>
 
                       {/* Source */}
