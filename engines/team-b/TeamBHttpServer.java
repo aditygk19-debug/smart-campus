@@ -21,16 +21,18 @@ public class TeamBHttpServer {
 
         buildGraph();
         routingEngine = new RoutingEngine();
-
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
         server.createContext("/health", new HealthHandler());
         server.createContext("/route", new RouteHandler());
+        server.createContext("/search", new SearchHandler(graph, routingEngine));
         server.setExecutor(null);
         server.start();
 
         System.out.println("Team B HTTP Server running on http://localhost:" + PORT);
         System.out.println("  GET  http://localhost:" + PORT + "/health");
         System.out.println("  POST http://localhost:" + PORT + "/route");
+        System.out.println("  POST http://localhost:" + PORT + "/search");
+        System.out.println("  DB connectivity: " + (Db.testConnection() ? "OK" : "FAILED"));
     }
 
     private static void buildGraph() {
