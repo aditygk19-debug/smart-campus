@@ -8,6 +8,7 @@ import resourceTypesRouter from './routes/resource-types.js';
 import resourcesRouter from './routes/resources.js';
 import campusNodesRouter from './routes/campus-nodes.js';
 import bookingsRouter from './routes/bookings.js';
+import searchRouter from './routes/search.js';
 
 dotenv.config();
 
@@ -31,7 +32,7 @@ app.use('/api/departments/:deptId/resource-types', resourceTypesRouter);
 app.use('/api/resources', resourcesRouter);
 app.use('/api/campus-nodes', campusNodesRouter);
 app.use('/api/bookings', bookingsRouter);
-
+app.use('/api/search', searchRouter);
 // ---- Start server ----
 async function start() {
   const dbOk = await testConnection();
