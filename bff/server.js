@@ -9,6 +9,8 @@ import resourcesRouter from './routes/resources.js';
 import campusNodesRouter from './routes/campus-nodes.js';
 import bookingsRouter from './routes/bookings.js';
 import searchRouter from './routes/search.js';
+import notificationsRouter from './routes/notifications.js';
+import { registerSseRoute } from './sse.js';
 
 dotenv.config();
 
@@ -33,6 +35,10 @@ app.use('/api/resources', resourcesRouter);
 app.use('/api/campus-nodes', campusNodesRouter);
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/search', searchRouter);
+app.use('/api/notifications', notificationsRouter);
+
+registerSseRoute(app);
+
 // ---- Start server ----
 async function start() {
   const dbOk = await testConnection();
