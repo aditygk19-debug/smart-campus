@@ -24,6 +24,37 @@ CREATE DATABASE /*!32312 IF NOT EXISTS*/ `smartcampus` /*!40100 DEFAULT CHARACTE
 USE `smartcampus`;
 
 --
+-- Table structure for table `audit_log`
+--
+
+DROP TABLE IF EXISTS `audit_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `audit_log` (
+  `AuditId` int NOT NULL AUTO_INCREMENT,
+  `UserId` int DEFAULT NULL,
+  `Action` varchar(64) NOT NULL,
+  `EntityType` varchar(64) NOT NULL,
+  `EntityId` int DEFAULT NULL,
+  `OldValue` text,
+  `NewValue` text,
+  `CreatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`AuditId`),
+  KEY `idx_entity` (`EntityType`,`EntityId`),
+  KEY `idx_user` (`UserId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `audit_log`
+--
+
+LOCK TABLES `audit_log` WRITE;
+/*!40000 ALTER TABLE `audit_log` DISABLE KEYS */;
+/*!40000 ALTER TABLE `audit_log` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `bookings`
 --
 
@@ -38,6 +69,8 @@ CREATE TABLE `bookings` (
   `BookingDate` date NOT NULL,
   `Purpose` varchar(255) DEFAULT NULL,
   `Status` varchar(20) DEFAULT 'Pending',
+  `Priority` int DEFAULT '2',
+  `WaitlistPosition` int DEFAULT NULL,
   PRIMARY KEY (`BookingId`),
   UNIQUE KEY `ResourceId` (`ResourceId`,`SlotId`,`BookingDate`),
   KEY `UserId` (`UserId`),
@@ -46,7 +79,7 @@ CREATE TABLE `bookings` (
   CONSTRAINT `bookings_ibfk_2` FOREIGN KEY (`ResourceId`) REFERENCES `resources` (`ResourceId`),
   CONSTRAINT `bookings_ibfk_3` FOREIGN KEY (`SlotId`) REFERENCES `time_slot` (`SlotId`),
   CONSTRAINT `bookings_chk_1` CHECK ((`Status` in (_utf8mb4'Pending',_utf8mb4'Confirmed',_utf8mb4'Cancelled')))
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -55,7 +88,7 @@ CREATE TABLE `bookings` (
 
 LOCK TABLES `bookings` WRITE;
 /*!40000 ALTER TABLE `bookings` DISABLE KEYS */;
-INSERT INTO `bookings` VALUES (2,2403173,5,2,'2026-10-08','Practical / Lab Session ΓÇö ui','Confirmed'),(3,2403173,6,4,'2026-10-15','Project Work ΓÇö asd','Confirmed'),(4,2403173,6,2,'2026-10-08','Project Work ΓÇö asd','Cancelled');
+INSERT INTO `bookings` VALUES (2,2403173,5,2,'2026-10-08','Practical / Lab Session ╬ô├ç├╢ ui','Confirmed',2,NULL),(3,2403173,6,4,'2026-10-15','Project Work ╬ô├ç├╢ asd','Confirmed',2,NULL),(4,2403173,6,2,'2026-10-08','Project Work ╬ô├ç├╢ asd','Cancelled',2,NULL),(5,2403163,17,2,'2026-10-09','Workshop / Seminar — asdfgh','Cancelled',2,NULL),(6,2403163,5,6,'2026-10-09','Practical / Lab Session — 123','Confirmed',2,NULL),(7,2403163,17,6,'2026-10-14','Practical / Lab Session — zxc','Confirmed',2,NULL),(8,2403163,5,2,'2026-10-09','Exam / Assessment — ASDDFG','Cancelled',2,NULL),(9,2403173,5,6,'2026-10-14','Lecture / Theory Class — ASD','Confirmed',2,NULL),(10,2403163,11,6,'2026-10-14','Exam / Assessment — ASDFGHJ','Cancelled',2,NULL),(11,2403163,12,6,'2026-10-14','Exam / Assessment','Confirmed',2,NULL),(12,2403163,5,6,'2026-10-22','Exam / Assessment — ASDF','Confirmed',2,NULL),(15,2403163,6,6,'2026-10-22','Lecture / Theory Class — DFGH','Confirmed',2,NULL),(22,2403163,5,8,'2026-10-09','Exam / Assessment — jkkk','Confirmed',2,NULL),(23,2403163,5,6,'2026-10-21','Lecture / Theory Class — asd','Confirmed',2,NULL),(24,2403163,5,2,'2026-10-12','Lecture / Theory Class','Confirmed',2,NULL),(25,2403163,6,2,'2026-10-12','Practical / Lab Session','Confirmed',2,NULL);
 /*!40000 ALTER TABLE `bookings` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -166,6 +199,37 @@ LOCK TABLES `location` WRITE;
 /*!40000 ALTER TABLE `location` DISABLE KEYS */;
 INSERT INTO `location` VALUES (1,'CSE Building',1,'L1'),(2,'CSE Building',1,'L2'),(3,'CSE Building',1,'L3'),(4,'CSE Building',1,'L4'),(5,'CSE Building',1,'C1'),(6,'CSE Building',1,'C2'),(7,'CSE Building',1,'C3'),(8,'Main Campus',1,'CH1'),(9,'Electrical Building',1,'EL1'),(10,'Electrical Building',1,'EL2'),(11,'Electrical Building',1,'EC1'),(12,'Electrical Building',1,'EC2'),(13,'Electrical Building',1,'EC3'),(14,'AIML Building',1,'AL1'),(15,'AIML Building',1,'AL2'),(16,'AIML Building',1,'AL3'),(17,'AIML Building',1,'AC1'),(18,'AIML Building',1,'AC2'),(19,'AIML Building',1,'AC3'),(20,'Mechanical Building',1,'ML1'),(21,'Mechanical Building',1,'ML2'),(22,'Mechanical Building',1,'MC1'),(23,'Mechanical Building',1,'MC2');
 /*!40000 ALTER TABLE `location` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `notifications`
+--
+
+DROP TABLE IF EXISTS `notifications`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `notifications` (
+  `NotificationId` int NOT NULL AUTO_INCREMENT,
+  `UserId` int NOT NULL,
+  `BookingId` int DEFAULT NULL,
+  `Message` varchar(255) NOT NULL,
+  `IsRead` tinyint(1) NOT NULL DEFAULT '0',
+  `CreatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`NotificationId`),
+  KEY `idx_user_read` (`UserId`,`IsRead`),
+  KEY `fk_notif_booking` (`BookingId`),
+  CONSTRAINT `fk_notif_booking` FOREIGN KEY (`BookingId`) REFERENCES `bookings` (`BookingId`) ON DELETE SET NULL,
+  CONSTRAINT `fk_notif_user` FOREIGN KEY (`UserId`) REFERENCES `users` (`UserId`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `notifications`
+--
+
+LOCK TABLES `notifications` WRITE;
+/*!40000 ALTER TABLE `notifications` DISABLE KEYS */;
+/*!40000 ALTER TABLE `notifications` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -320,19 +384,67 @@ UNLOCK TABLES;
 --
 -- Dumping routines for database 'smartcampus'
 --
+/*!50003 DROP PROCEDURE IF EXISTS `ADD_USER_TRANSACTION` */;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = cp850 */ ;
+/*!50003 SET character_set_results = cp850 */ ;
+/*!50003 SET collation_connection  = cp850_general_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+CREATE DEFINER=`root`@`localhost` PROCEDURE `ADD_USER_TRANSACTION`(
+    IN p_UserId INT,
+    IN p_Password VARCHAR(255),
+    IN p_Role VARCHAR(20)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    IF EXISTS (SELECT 1 FROM USERS WHERE UserId = p_UserId) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'User already exists';
+    END IF;
+
+    INSERT INTO USERS (UserId, Password, Role, Status)
+    VALUES (p_UserId, p_Password, p_Role, 'Active');
+
+    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
+    VALUES (p_UserId, 'ADD_USER', 'USER', p_UserId, CONCAT('role=', p_Role));
+
+    COMMIT;
+
+    SELECT p_UserId AS UserId, 'User added successfully' AS Message;
+END ;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
 /*!50003 DROP PROCEDURE IF EXISTS `CANCEL_BOOKING_TRANSACTION` */;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8mb4 */ ;
-/*!50003 SET character_set_results = utf8mb4 */ ;
-/*!50003 SET collation_connection  = utf8mb4_0900_ai_ci */ ;
+/*!50003 SET character_set_client  = cp850 */ ;
+/*!50003 SET character_set_results = cp850 */ ;
+/*!50003 SET collation_connection  = cp850_general_ci */ ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
 CREATE DEFINER=`root`@`localhost` PROCEDURE `CANCEL_BOOKING_TRANSACTION`(IN p_BookingId INT)
 BEGIN
     DECLARE v_status VARCHAR(20);
+    DECLARE v_userId INT;
+    DECLARE v_resourceId INT;
+    DECLARE v_slotId INT;
+    DECLARE v_bookingDate DATE;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -342,7 +454,8 @@ BEGIN
 
     START TRANSACTION;
 
-    SELECT Status INTO v_status
+    SELECT Status, UserId, ResourceId, SlotId, BookingDate
+    INTO v_status, v_userId, v_resourceId, v_slotId, v_bookingDate
     FROM BOOKINGS
     WHERE BookingId = p_BookingId
     FOR UPDATE;
@@ -361,6 +474,12 @@ BEGIN
     SET Status = 'Cancelled'
     WHERE BookingId = p_BookingId;
 
+    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, OldValue, NewValue)
+    VALUES (v_userId, 'CANCEL_BOOKING', 'BOOKING', p_BookingId, v_status, 'Cancelled');
+
+    INSERT INTO NOTIFICATIONS (UserId, BookingId, Message)
+    VALUES (v_userId, p_BookingId, CONCAT('Your booking #', p_BookingId, ' has been cancelled.'));
+
     COMMIT;
 
     SELECT p_BookingId AS BookingId, 'Booking cancelled successfully' AS Message;
@@ -374,9 +493,9 @@ DELIMITER ;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8mb4 */ ;
-/*!50003 SET character_set_results = utf8mb4 */ ;
-/*!50003 SET collation_connection  = utf8mb4_0900_ai_ci */ ;
+/*!50003 SET character_set_client  = cp850 */ ;
+/*!50003 SET character_set_results = cp850 */ ;
+/*!50003 SET collation_connection  = cp850_general_ci */ ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
@@ -385,13 +504,15 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `CREATE_BOOKING_TRANSACTION`(
     IN p_ResourceId INT,
     IN p_SlotId INT,
     IN p_BookingDate DATE,
-    IN p_Purpose VARCHAR(255)
+    IN p_Purpose VARCHAR(255),
+    IN p_Priority INT
 )
 BEGIN
     DECLARE v_user_count INT DEFAULT 0;
     DECLARE v_slot_count INT DEFAULT 0;
     DECLARE v_resource_status VARCHAR(30);
     DECLARE v_booking_count INT DEFAULT 0;
+    DECLARE v_new_id INT DEFAULT 0;
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -447,13 +568,311 @@ BEGIN
     END IF;
 
     INSERT INTO BOOKINGS
-    (UserId, ResourceId, SlotId, BookingDate, Purpose, Status)
+    (UserId, ResourceId, SlotId, BookingDate, Purpose, Status, Priority)
     VALUES
-    (p_UserId, p_ResourceId, p_SlotId, p_BookingDate, p_Purpose, 'Confirmed');
+    (p_UserId, p_ResourceId, p_SlotId, p_BookingDate, p_Purpose, 'Confirmed', COALESCE(p_Priority, 2));
+
+    SET v_new_id = LAST_INSERT_ID();
+
+    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
+    VALUES (p_UserId, 'CREATE_BOOKING', 'BOOKING', v_new_id, CONCAT('resource=', p_ResourceId, ' date=', p_BookingDate));
 
     COMMIT;
 
-    SELECT LAST_INSERT_ID() AS BookingId, 'Booking committed successfully' AS Message;
+    SELECT v_new_id AS BookingId, 'Booking committed successfully' AS Message;
+END ;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
+/*!50003 DROP PROCEDURE IF EXISTS `DELETE_USER_TRANSACTION` */;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = cp850 */ ;
+/*!50003 SET character_set_results = cp850 */ ;
+/*!50003 SET collation_connection  = cp850_general_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+CREATE DEFINER=`root`@`localhost` PROCEDURE `DELETE_USER_TRANSACTION`(IN p_UserId INT)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    IF NOT EXISTS (SELECT 1 FROM USERS WHERE UserId = p_UserId) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'User does not exist';
+    END IF;
+
+    DELETE FROM USERS WHERE UserId = p_UserId;
+
+    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, OldValue)
+    VALUES (p_UserId, 'DELETE_USER', 'USER', p_UserId, 'deleted');
+
+    COMMIT;
+
+    SELECT p_UserId AS UserId, 'User deleted successfully' AS Message;
+END ;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
+/*!50003 DROP PROCEDURE IF EXISTS `PROMOTE_WAITLIST_TRANSACTION` */;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = cp850 */ ;
+/*!50003 SET character_set_results = cp850 */ ;
+/*!50003 SET collation_connection  = cp850_general_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+CREATE DEFINER=`root`@`localhost` PROCEDURE `PROMOTE_WAITLIST_TRANSACTION`(
+    IN p_ResourceId INT,
+    IN p_SlotId INT,
+    IN p_BookingDate DATE
+)
+BEGIN
+    DECLARE v_winner_id INT DEFAULT NULL;
+    DECLARE v_winner_user INT DEFAULT NULL;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    
+    SELECT BookingId, UserId INTO v_winner_id, v_winner_user
+    FROM BOOKINGS
+    WHERE ResourceId = p_ResourceId
+      AND SlotId = p_SlotId
+      AND BookingDate = p_BookingDate
+      AND Status = 'Waitlisted'
+    ORDER BY Priority ASC, BookingId ASC
+    LIMIT 1
+    FOR UPDATE;
+
+    IF v_winner_id IS NULL THEN
+        COMMIT;
+        SELECT NULL AS PromotedBookingId, NULL AS WinnerUserId, 'No waitlist entries' AS Message;
+    ELSE
+        UPDATE BOOKINGS
+        SET Status = 'Confirmed',
+            WaitlistPosition = NULL
+        WHERE BookingId = v_winner_id;
+
+        INSERT INTO NOTIFICATIONS (UserId, BookingId, Message)
+        VALUES (v_winner_user, v_winner_id,
+                CONCAT('Good news! Your waitlisted booking #', v_winner_id, ' is now confirmed.'));
+
+        INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
+        VALUES (v_winner_user, 'PROMOTE_WAITLIST', 'BOOKING', v_winner_id, 'Confirmed');
+
+        COMMIT;
+
+        SELECT v_winner_id AS PromotedBookingId,
+               v_winner_user AS WinnerUserId,
+               'Waitlist entry promoted to Confirmed' AS Message;
+    END IF;
+END ;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
+/*!50003 DROP PROCEDURE IF EXISTS `RESET_PASSWORD_TRANSACTION` */;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = cp850 */ ;
+/*!50003 SET character_set_results = cp850 */ ;
+/*!50003 SET collation_connection  = cp850_general_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+CREATE DEFINER=`root`@`localhost` PROCEDURE `RESET_PASSWORD_TRANSACTION`(
+    IN p_UserId INT,
+    IN p_NewPassword VARCHAR(255)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    IF NOT EXISTS (SELECT 1 FROM USERS WHERE UserId = p_UserId) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'User does not exist';
+    END IF;
+
+    UPDATE USERS SET Password = p_NewPassword WHERE UserId = p_UserId;
+
+    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId)
+    VALUES (p_UserId, 'RESET_PASSWORD', 'USER', p_UserId);
+
+    COMMIT;
+
+    SELECT p_UserId AS UserId, 'Password reset successfully' AS Message;
+END ;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
+/*!50003 DROP PROCEDURE IF EXISTS `UPDATE_USER_TRANSACTION` */;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = cp850 */ ;
+/*!50003 SET character_set_results = cp850 */ ;
+/*!50003 SET collation_connection  = cp850_general_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+CREATE DEFINER=`root`@`localhost` PROCEDURE `UPDATE_USER_TRANSACTION`(
+    IN p_UserId INT,
+    IN p_Role VARCHAR(20),
+    IN p_Status VARCHAR(20)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    IF NOT EXISTS (SELECT 1 FROM USERS WHERE UserId = p_UserId) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'User does not exist';
+    END IF;
+
+    UPDATE USERS
+    SET Role = COALESCE(p_Role, Role),
+        Status = COALESCE(p_Status, Status)
+    WHERE UserId = p_UserId;
+
+    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
+    VALUES (p_UserId, 'UPDATE_USER', 'USER', p_UserId, CONCAT('role=', p_Role, ' status=', p_Status));
+
+    COMMIT;
+
+    SELECT p_UserId AS UserId, 'User updated successfully' AS Message;
+END ;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
+/*!50003 DROP PROCEDURE IF EXISTS `WAITLIST_BOOKING_TRANSACTION` */;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = cp850 */ ;
+/*!50003 SET character_set_results = cp850 */ ;
+/*!50003 SET collation_connection  = cp850_general_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+CREATE DEFINER=`root`@`localhost` PROCEDURE `WAITLIST_BOOKING_TRANSACTION`(
+    IN p_UserId INT,
+    IN p_ResourceId INT,
+    IN p_SlotId INT,
+    IN p_BookingDate DATE,
+    IN p_Purpose VARCHAR(255),
+    IN p_Priority INT
+)
+BEGIN
+    DECLARE v_user_count INT DEFAULT 0;
+    DECLARE v_slot_count INT DEFAULT 0;
+    DECLARE v_new_id INT DEFAULT 0;
+    DECLARE v_position INT DEFAULT 0;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT COUNT(*) INTO v_user_count
+    FROM USERS
+    WHERE UserId = p_UserId AND Status = 'Active';
+
+    IF v_user_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Invalid or inactive user';
+    END IF;
+
+    SELECT COUNT(*) INTO v_slot_count
+    FROM TIME_SLOT
+    WHERE SlotId = p_SlotId;
+
+    IF v_slot_count = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Invalid time slot';
+    END IF;
+
+    
+    IF EXISTS (
+        SELECT 1 FROM BOOKINGS
+        WHERE UserId = p_UserId
+          AND ResourceId = p_ResourceId
+          AND SlotId = p_SlotId
+          AND BookingDate = p_BookingDate
+          AND Status IN ('Waitlisted', 'Confirmed', 'Pending')
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'You already have a request for this resource and slot';
+    END IF;
+
+    INSERT INTO BOOKINGS
+    (UserId, ResourceId, SlotId, BookingDate, Purpose, Status, Priority)
+    VALUES
+    (p_UserId, p_ResourceId, p_SlotId, p_BookingDate, p_Purpose, 'Waitlisted', COALESCE(p_Priority, 2));
+
+    SET v_new_id = LAST_INSERT_ID();
+
+    
+    SELECT COUNT(*) INTO v_position
+    FROM BOOKINGS
+    WHERE ResourceId = p_ResourceId
+      AND SlotId = p_SlotId
+      AND BookingDate = p_BookingDate
+      AND Status = 'Waitlisted'
+      AND (
+        Priority < p_Priority
+        OR (Priority = p_Priority AND BookingId < v_new_id)
+      );
+
+    UPDATE BOOKINGS
+    SET WaitlistPosition = v_position + 1
+    WHERE BookingId = v_new_id;
+
+    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
+    VALUES (p_UserId, 'WAITLIST_BOOKING', 'BOOKING', v_new_id, CONCAT('position=', v_position + 1, ' priority=', p_Priority));
+
+    COMMIT;
+
+    SELECT v_new_id AS BookingId,
+           v_position + 1 AS WaitlistPosition,
+           'You have been added to the waitlist' AS Message;
 END ;;
 DELIMITER ;
 /*!50003 SET sql_mode              = @saved_sql_mode */ ;
@@ -470,108 +889,4 @@ DELIMITER ;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-08 22:18:00
-
---
--- Stored procedures for smartcampus
---
-
-DROP PROCEDURE IF EXISTS `CREATE_BOOKING_TRANSACTION`;
-DROP PROCEDURE IF EXISTS `CANCEL_BOOKING_TRANSACTION`;
-
-DELIMITER $$
-CREATE PROCEDURE `CREATE_BOOKING_TRANSACTION`(
-    IN p_UserId INT,
-    IN p_ResourceId INT,
-    IN p_SlotId INT,
-    IN p_BookingDate DATE,
-    IN p_Purpose VARCHAR(255)
-)
-BEGIN
-    DECLARE v_user_count INT DEFAULT 0;
-    DECLARE v_slot_count INT DEFAULT 0;
-    DECLARE v_resource_status VARCHAR(30);
-    DECLARE v_booking_count INT DEFAULT 0;
-
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-        RESIGNAL;
-    END;
-
-    START TRANSACTION;
-
-    SELECT COUNT(*) INTO v_user_count FROM USERS
-    WHERE UserId = p_UserId AND Status = 'Active';
-
-    IF v_user_count = 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid or inactive user';
-    END IF;
-
-    SELECT Status INTO v_resource_status FROM RESOURCES
-    WHERE ResourceId = p_ResourceId FOR UPDATE;
-
-    IF v_resource_status IS NULL THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Resource does not exist';
-    END IF;
-
-    IF v_resource_status <> 'Available' THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Resource is not available';
-    END IF;
-
-    SELECT COUNT(*) INTO v_slot_count FROM TIME_SLOT WHERE SlotId = p_SlotId;
-
-    IF v_slot_count = 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid time slot';
-    END IF;
-
-    SELECT COUNT(*) INTO v_booking_count FROM BOOKINGS
-    WHERE ResourceId = p_ResourceId
-      AND SlotId = p_SlotId
-      AND BookingDate = p_BookingDate
-      AND Status IN ('Pending', 'Confirmed');
-
-    IF v_booking_count > 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Resource already booked for this slot and date';
-    END IF;
-
-    INSERT INTO BOOKINGS
-    (UserId, ResourceId, SlotId, BookingDate, Purpose, Status)
-    VALUES
-    (p_UserId, p_ResourceId, p_SlotId, p_BookingDate, p_Purpose, 'Confirmed');
-
-    COMMIT;
-
-    SELECT LAST_INSERT_ID() AS BookingId, 'Booking committed successfully' AS Message;
-END$$
-
-CREATE PROCEDURE `CANCEL_BOOKING_TRANSACTION`(IN p_BookingId INT)
-BEGIN
-    DECLARE v_status VARCHAR(20);
-
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-        RESIGNAL;
-    END;
-
-    START TRANSACTION;
-
-    SELECT Status INTO v_status FROM BOOKINGS
-    WHERE BookingId = p_BookingId FOR UPDATE;
-
-    IF v_status IS NULL THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Booking does not exist';
-    END IF;
-
-    IF v_status = 'Cancelled' THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Booking is already cancelled';
-    END IF;
-
-    UPDATE BOOKINGS SET Status = 'Cancelled' WHERE BookingId = p_BookingId;
-
-    COMMIT;
-
-    SELECT p_BookingId AS BookingId, 'Booking cancelled successfully' AS Message;
-END$$
-DELIMITER ;
+-- Dump completed on 2026-10-12  0:27:25
