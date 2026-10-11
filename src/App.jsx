@@ -8,6 +8,8 @@ import BookingFormPage from './pages/BookingFormPage';
 import BookingStatusPage from './pages/BookingStatusPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminReportsPage from './pages/AdminReportsPage';
+import SearchResourcesPage from './pages/SearchResourcesPage';
+import SearchResultsPage from './pages/SearchResultsPage';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -92,6 +94,14 @@ export default function App() {
       <Route
         path="/dashboard/bookings"
         element={RequireUser(<BookingStatusPage user={user} onLogout={handleLogout} />, ['Student', 'Faculty'])}
+      />
+            <Route
+        path="/dashboard/search"
+        element={RequireUser(<SearchResourcesPage user={user} onLogout={handleLogout} />, ['Student', 'Faculty'])}
+      />
+      <Route
+        path="/dashboard/search-results"
+        element={RequireUser(<SearchResultsPage user={user} onLogout={handleLogout} />, ['Student', 'Faculty'])}
       />
       <Route
         path="/admin"

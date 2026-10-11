@@ -7,7 +7,10 @@ import {
   AlertCircle,
   GraduationCap,
   BookOpen,
+  Search,
+  CalendarClock,
 } from "lucide-react";
+import NotificationBell from "../components/NotificationBell";
 
 export default function DashboardPage({ user, onLogout }) {
   const navigate = useNavigate();
@@ -65,6 +68,7 @@ export default function DashboardPage({ user, onLogout }) {
                 {user?.role}
               </span>
             </div>
+                        <NotificationBell userId={user?.userId} />
             <button
               type="button"
               onClick={onLogout}
@@ -125,6 +129,39 @@ export default function DashboardPage({ user, onLogout }) {
             </p>
           </div>
         </section>
+
+         {/* QUICK ACTIONS */}
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/search')}
+            className="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 text-left transition-all hover:scale-[1.01] hover:border-indigo-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50">
+              <Search className="h-5 w-5 text-indigo-600" aria-hidden="true" />
+            </span>
+            <span className="flex-1">
+              <span className="block text-base font-semibold">Search Resources</span>
+              <span className="block text-xs text-slate-500">Find the nearest available lab, classroom, or hall</span>
+            </span>
+            <ArrowRight className="h-5 w-5 text-slate-400 transition-colors group-hover:text-indigo-600" aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/bookings')}
+            className="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 text-left transition-all hover:scale-[1.01] hover:border-indigo-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50">
+              <CalendarClock className="h-5 w-5 text-indigo-600" aria-hidden="true" />
+            </span>
+            <span className="flex-1">
+              <span className="block text-base font-semibold">My Bookings</span>
+              <span className="block text-xs text-slate-500">View history and status of your requests</span>
+            </span>
+            <ArrowRight className="h-5 w-5 text-slate-400 transition-colors group-hover:text-indigo-600" aria-hidden="true" />
+          </button>
+        </div>
 
         {/* SECTION HEADING */}
         <div className="mt-10">
