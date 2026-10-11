@@ -8,13 +8,14 @@ import BookingFormPage from './pages/BookingFormPage';
 import BookingStatusPage from './pages/BookingStatusPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminReportsPage from './pages/AdminReportsPage';
+import AdminUsersPage from './pages/AdminUsersPage';
+import AdminAuditLogsPage from './pages/AdminAuditLogsPage';
 import SearchResourcesPage from './pages/SearchResourcesPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 
 export default function App() {
   const [user, setUser] = useState(null);
 
-  // Rehydrate user from localStorage on mount
   useEffect(() => {
     const storedUser = localStorage.getItem('sc_user');
     if (storedUser) {
@@ -27,10 +28,10 @@ export default function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-  role: role.charAt(0).toUpperCase() + role.slice(1),
-  userId,
-  password,
-}),
+        role: role.charAt(0).toUpperCase() + role.slice(1),
+        userId,
+        password,
+      }),
     });
 
     const data = await res.json();
@@ -39,11 +40,9 @@ export default function App() {
       throw new Error(data.message || 'Login failed');
     }
 
-    // Persist
     localStorage.setItem('sc_token', data.token);
     localStorage.setItem('sc_user', JSON.stringify(data.user));
 
-    // Update state
     setUser(data.user);
     return data.user;
   }
@@ -75,6 +74,7 @@ export default function App() {
         }
       />
 
+      {/* Student / Faculty routes */}
       <Route
         path="/dashboard"
         element={RequireUser(<DashboardPage user={user} onLogout={handleLogout} />, ['Student', 'Faculty'])}
@@ -95,7 +95,7 @@ export default function App() {
         path="/dashboard/bookings"
         element={RequireUser(<BookingStatusPage user={user} onLogout={handleLogout} />, ['Student', 'Faculty'])}
       />
-            <Route
+      <Route
         path="/dashboard/search"
         element={RequireUser(<SearchResourcesPage user={user} onLogout={handleLogout} />, ['Student', 'Faculty'])}
       />
@@ -103,6 +103,8 @@ export default function App() {
         path="/dashboard/search-results"
         element={RequireUser(<SearchResultsPage user={user} onLogout={handleLogout} />, ['Student', 'Faculty'])}
       />
+
+      {/* Admin routes */}
       <Route
         path="/admin"
         element={RequireUser(<AdminDashboardPage user={user} onLogout={handleLogout} />, ['Admin'])}
@@ -110,6 +112,14 @@ export default function App() {
       <Route
         path="/admin/reports"
         element={RequireUser(<AdminReportsPage user={user} onLogout={handleLogout} />, ['Admin'])}
+      />
+      <Route
+        path="/admin/users"
+        element={RequireUser(<AdminUsersPage user={user} onLogout={handleLogout} />, ['Admin'])}
+      />
+      <Route
+        path="/admin/audit-logs"
+        element={RequireUser(<AdminAuditLogsPage user={user} onLogout={handleLogout} />, ['Admin'])}
       />
 
       <Route path="/" element={<Navigate to="/login" replace />} />

@@ -12,6 +12,7 @@ import searchRouter from './routes/search.js';
 import notificationsRouter from './routes/notifications.js';
 import { registerSseRoute } from './sse.js';
 import adminRouter from './routes/admin.js';
+import adminStatsRouter from './routes/admin-stats.js';
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.use('/api/campus-nodes', campusNodesRouter);
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/admin', adminStatsRouter);
 app.use('/api/admin', adminRouter);
 
 registerSseRoute(app);
