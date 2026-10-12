@@ -41,3 +41,20 @@ desktop.ini
 .cache/
 .temp/
 .tmp/
+# Java compiled classes
+*.class
+
+# Java build output
+target/
+out/
+bin/
+
+# Node build output
+dist/
+.vite/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
