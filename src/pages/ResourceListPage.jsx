@@ -67,13 +67,12 @@ function formatTimeRange(start, end) {
   return `${formatTime(start)} \u2013 ${formatTime(end)}`;
 }
 
-// Classroom: 1-hour slots. Lab / Conference Hall: 2-hour slots.
-function generateSlots(typeId) {
-  const duration = Number(typeId) === 2 ? 1 : 2;
+// All resource types use 1-hour slots to match the TIME_SLOT table.
+function generateSlots() {
   const slots = [];
-  for (let h = DAY_START_HOUR; h + duration <= DAY_END_HOUR; h += duration) {
+  for (let h = DAY_START_HOUR; h < DAY_END_HOUR; h += 1) {
     const start = `${pad(h)}:00`;
-    const end = `${pad(h + duration)}:00`;
+    const end = `${pad(h + 1)}:00`;
     slots.push({ start, end, label: formatTimeRange(start, end) });
   }
   return slots;
@@ -99,15 +98,14 @@ export default function ResourceListPage({ user, onLogout }) {
   const typeName = TYPE_NAMES[typeId] ?? "Resources";
   const TypeIcon = TYPE_ICONS[typeId] ?? BookOpen;
 
-  const slots = generateSlots(typeId);
+  const slots = generateSlots();
   const selectedSlot = slots[slotIndex] ?? slots[0];
   const startTime = selectedSlot.start;
   const endTime = selectedSlot.end;
 
   const minDate = getToday();
   const maxDate = getMaxDate();
-
-  // Reset the slot when navigating between categories (different slot lists)
+  // Reset the slot when navigating between categories
   useEffect(() => {
     setSlotIndex(0);
   }, [typeId]);

@@ -65,10 +65,7 @@ export default function SearchResourcesPage({ user, onLogout }) {
         if (!res.ok) throw new Error();
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          const places = data.filter((n) =>
-            ["Gate", "Library", "Office", "Department"].includes(n.nodeType)
-          );
-          if (places.length > 0) setNodes(places);
+          setNodes(data);
         }
       } catch {
         setNodes(FALLBACK_NODES);
