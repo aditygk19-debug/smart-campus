@@ -1,0 +1,71 @@
+services:
+  # ---------------- Team A (OS Scheduling) ----------------
+  - type: web
+    name: smart-campus-team-a
+    env: docker
+    plan: free
+    region: singapore
+    rootDir: engines/team-a
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+    healthCheckPath: /health
+    autoDeploy: true
+
+  # ---------------- Team B (DSA Routing) ----------------
+  - type: web
+    name: smart-campus-team-b
+    env: docker
+    plan: free
+    region: singapore
+    rootDir: engines/team-b
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+    healthCheckPath: /health
+    autoDeploy: true
+
+  # ---------------- BFF (Node.js) ----------------
+  - type: web
+    name: smart-campus-bff
+    env: node
+    plan: free
+    region: singapore
+    rootDir: bff
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: smartcampus
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRY
+        value: 24h
+      - key: SCHEDULER_URL
+        sync: false
+      - key: ROUTER_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+    healthCheckPath: /api/health
+    autoDeploy: true
