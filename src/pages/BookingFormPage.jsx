@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Send,
   Loader2,
-  MapPin,
   CalendarClock,
   Info,
   CheckCircle2,
@@ -41,12 +40,6 @@ const PRIORITY_STYLES = {
   low: { label: "Low Priority", className: "bg-slate-100 text-slate-700" },
 };
 
-const FALLBACK_NODES = [
-  { nodeId: "N1", nodeName: "Main Gate", nodeType: "Gate" },
-  { nodeId: "N3", nodeName: "Library", nodeType: "Library" },
-  { nodeId: "N5", nodeName: "Office", nodeType: "Office" },
-  { nodeId: "N4", nodeName: "CSE Department", nodeType: "Department" },
-];
 
 // Used only to build breadcrumb links from the names the API returns
 const DEPT_IDS_BY_NAME = { CSE: "A1", Electrical: "B1", AIML: "C1", Mechanical: "D1" };
@@ -143,8 +136,6 @@ export default function BookingFormPage({ user, onLogout }) {
 
   // State
   const [resource, setResource] = useState(null);
-  const [nodes, setNodes] = useState([]);
-  const [sourceNodeId, setSourceNodeId] = useState("");
   const [reasonId, setReasonId] = useState("");
   const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState({});
@@ -182,26 +173,7 @@ export default function BookingFormPage({ user, onLogout }) {
     return () => controller.abort();
   }, [resourceId, missingParams, reloadKey]);
 
-  // Fetch campus nodes (falls back to a hardcoded list on failure)
-  useEffect(() => {
-    const controller = new AbortController();
 
-    async function loadNodes() {
-      try {
-        const res = await fetch("/api/campus-nodes", { signal: controller.signal });
-        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-        const data = await res.json();
-        if (!Array.isArray(data) || data.length === 0) throw new Error("Empty list");
-        setNodes(data);
-      } catch (err) {
-        if (err.name === "AbortError") return;
-        setNodes(FALLBACK_NODES);
-      }
-    }
-
-    loadNodes();
-    return () => controller.abort();
-  }, []);
 
   function clearError(field) {
     setErrors((prev) => {
@@ -214,7 +186,6 @@ export default function BookingFormPage({ user, onLogout }) {
 
   function validate() {
     const next = {};
-    if (!sourceNodeId) next.source = "Select where you are coming from.";
     if (!reasonId) next.reason = "Select a reason for this booking.";
     return next;
   }
@@ -240,7 +211,6 @@ export default function BookingFormPage({ user, onLogout }) {
           date,
           startTime,
           endTime,
-          sourceNodeId,
           reasonId,
           reasonLabel: reason ? reason.label : "",
           notes: notes.trim(),
@@ -292,11 +262,6 @@ export default function BookingFormPage({ user, onLogout }) {
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600";
   const borderFor = (hasError) => (hasError ? "border-red-400" : "border-slate-200");
 
-  const destinationText = resource
-    ? [resource.resourceName, resource.buildingName, resource.roomNumber && `Room ${resource.roomNumber}`]
-        .filter(Boolean)
-        .join(", ")
-    : "";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
@@ -470,59 +435,8 @@ export default function BookingFormPage({ user, onLogout }) {
                       )}
                       <h2 className="text-base font-semibold">Request details</h2>
 
-                      {/* Source */}
-                      <div>
-                        <label htmlFor="source" className="mb-1 flex items-center gap-1.5 text-sm font-medium">
-                          <MapPin className="h-4 w-4 text-slate-500" aria-hidden="true" />
-                          Source Location <span className="text-red-500">*</span>
-                        </label>
-                        <p id="source-help" className="mb-2 text-xs text-slate-500">
-                          Where are you coming from? Used to calculate the shortest path.
-                        </p>
-                        <select
-                          id="source"
-                          value={sourceNodeId}
-                          onChange={(e) => {
-                            setSourceNodeId(e.target.value);
-                            clearError("source");
-                          }}
-                          aria-required="true"
-                          aria-invalid={errors.source ? "true" : "false"}
-                          aria-describedby={errors.source ? "source-help source-error" : "source-help"}
-                          className={`${inputClass} ${borderFor(errors.source)}`}
-                        >
-                          <option value="">Select a location</option>
-                          {nodes.map((n) => (
-                            <option key={n.nodeId} value={n.nodeId}>
-                              {n.nodeName}
-                            </option>
-                          ))}
-                        </select>
-                        {errors.source && (
-                          <p id="source-error" className="mt-1 text-xs text-red-600">
-                            {errors.source}
-                          </p>
-                        )}
-                      </div>
 
-                      {/* Destination */}
-                      <div>
-                        <label htmlFor="destination" className="mb-1 block text-sm font-medium">
-                          Destination
-                        </label>
-                        <p id="destination-help" className="mb-2 text-xs text-slate-500">
-                          The resource you are booking. Auto-filled.
-                        </p>
-                        <input
-                          id="destination"
-                          type="text"
-                          value={destinationText}
-                          disabled
-                          readOnly
-                          aria-describedby="destination-help"
-                          className={`${inputClass} cursor-not-allowed border-slate-200 bg-slate-100 text-slate-600`}
-                        />
-                      </div>
+
 
                       {/* Reason */}
                       <div>
