@@ -1,286 +1,211 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   LogOut,
-  AlertCircle,
   ChevronRight,
+  AlertCircle,
   Loader2,
-  CalendarCheck,
+  BarChart3,
   TrendingUp,
   Clock,
   Timer,
-  FlaskConical,
-  GraduationCap,
-  Users,
   Download,
   Printer,
   ArrowLeft,
-  BarChart3,
-  Activity,
 } from "lucide-react";
 
-/* ------------------------------------------------------------------ */
-/* Constants                                                           */
-/* ------------------------------------------------------------------ */
+const RANGES = [
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "90d", label: "Last 90 days" },
+];
 
-const TREND_BAR_AREA_PX = 200; // height that the tallest bar reaches
-const TREND_LABEL_ROOM_PX = 24; // space above the tallest bar for its count
-
-const TYPE_FILL = {
-  lab: "bg-indigo-500",
-  classroom: "bg-emerald-500",
-  hall: "bg-amber-500",
-  other: "bg-slate-500",
-};
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
-
-function calcMax(arr, key) {
-  return arr.reduce((max, item) => Math.max(max, Number(item[key]) || 0), 0);
-}
-
-function percent(value, max) {
-  return max > 0 ? (value / max) * 100 : 0;
-}
-
-const clampPct = (n) => Math.min(100, Math.max(0, n));
-
-// "14:00" -> "2:00 PM"
-function formatHour(hhmm) {
-  if (!hhmm) return "\u2013";
-  const [h, m] = String(hhmm).split(":").map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return hhmm;
-  const period = h >= 12 ? "PM" : "AM";
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
-}
-
-// "2026-10-02" -> "Oct 02"
-function formatDateShort(dateString) {
-  const [y, m, d] = String(dateString).split("-").map(Number);
-  if (!y || !m || !d) return dateString;
-  return `${MONTHS[m - 1]} ${String(d).padStart(2, "0")}`;
-}
-
-function getTypeKey(typeName) {
-  const t = String(typeName).toLowerCase();
-  if (t.includes("lab")) return "lab";
-  if (t.includes("class")) return "classroom";
-  if (t.includes("hall") || t.includes("conference")) return "hall";
-  return "other";
-}
-
-function getTypeIcon(typeName) {
-  const key = getTypeKey(typeName);
-  if (key === "lab") return FlaskConical;
-  if (key === "classroom") return GraduationCap;
-  return Users;
-}
-
-async function request(url, signal, isValid) {
-  try {
-    const res = await fetch(url, { signal });
-    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-    const data = await res.json();
-    if (!isValid(data)) throw new Error("Unexpected response");
-    return { ok: true, data };
-  } catch (err) {
-    return { ok: false, err };
-  }
-}
-
-const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
-
-/* ------------------------------------------------------------------ */
-/* Small presentational pieces                                         */
-/* ------------------------------------------------------------------ */
-
-function StatCard({ icon: Icon, value, suffix, label, hint }) {
+function StatCard({ icon: Icon, value, label, suffix = "" }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 print:break-inside-avoid">
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50">
-        <Icon className="h-5 w-5 text-indigo-600" aria-hidden="true" />
+        <Icon className="h-5 w-5 text-indigo-600" />
       </div>
       <p className="text-3xl font-bold">
-        {value}
-        {suffix && value !== "\u2013" && (
-          <span className="ml-1 text-base font-medium text-slate-500">{suffix}</span>
-        )}
+        {value === null || value === undefined ? "—" : value}
+        {suffix}
       </p>
       <p className="text-sm text-slate-500">{label}</p>
-      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
     </div>
   );
 }
 
-function ProgressBar({ value, fillClass, label }) {
-  const pct = Math.round(clampPct(value));
+function EmptyChart({ message }) {
   return (
-    <div
-      role="progressbar"
-      aria-valuenow={pct}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label={label}
-      title={`${label}: ${pct}%`}
-      className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100"
-    >
-      <div className={`h-full rounded-full ${fillClass}`} style={{ width: `${pct}%` }} />
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <BarChart3 className="mb-3 h-8 w-8 text-slate-300" />
+      <p className="text-sm text-slate-500">{message}</p>
     </div>
   );
 }
 
-function EmptyMessage({ children }) {
+function BarChart({ data, color = "bg-indigo-500" }) {
+  if (!data || data.length === 0) return <EmptyChart message="No data available." />;
+  const max = Math.max(...data.map((d) => d.count), 1);
   return (
-    <div className="flex flex-col items-center py-10 text-center">
-      <BarChart3 className="mb-2 h-8 w-8 text-slate-300" aria-hidden="true" />
-      <p className="text-sm text-slate-500">{children}</p>
+    <div className="space-y-2">
+      {data.map((d, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <span className="w-32 shrink-0 truncate text-xs text-slate-600">{d.label}</span>
+          <div className="flex-1 overflow-hidden rounded bg-slate-100">
+            <div
+              className={`${color} h-6 rounded transition-all`}
+              style={{ width: `${(d.count / max) * 100}%` }}
+            />
+          </div>
+          <span className="w-10 shrink-0 text-right text-xs font-medium text-slate-700">
+            {d.count}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
 
-function SkeletonBlock({ className }) {
-  return <div className={`animate-pulse rounded-xl bg-slate-200 ${className}`} />;
-}
+function LineChart({ data }) {
+  if (!data || data.length === 0)
+    return <EmptyChart message="No trend data available." />;
 
-/* ------------------------------------------------------------------ */
-/* Component                                                           */
-/* ------------------------------------------------------------------ */
+  const width = 700;
+  const height = 200;
+  const pad = 40;
+  const max = Math.max(...data.map((d) => d.count), 1);
+  const stepX = data.length > 1 ? (width - pad * 2) / (data.length - 1) : 0;
+
+  const points = data.map((d, i) => {
+    const x = pad + i * stepX;
+    const y = height - pad - (d.count / max) * (height - pad * 2);
+    return { x, y, ...d };
+  });
+
+  const path = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label="Booking trend">
+      <line x1={pad} y1={height - pad} x2={width - pad} y2={height - pad} stroke="#e2e8f0" />
+      <line x1={pad} y1={pad} x2={pad} y2={height - pad} stroke="#e2e8f0" />
+      <path d={path} fill="none" stroke="#4f46e5" strokeWidth="2" />
+      {points.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r="4" fill="#4f46e5" />
+          <text x={p.x} y={height - 10} textAnchor="middle" fontSize="10" fill="#64748b">
+            {String(p.date).slice(5)}
+          </text>
+          <text x={p.x} y={p.y - 8} textAnchor="middle" fontSize="10" fill="#334155">
+            {p.count}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 export default function AdminReportsPage({ user, onLogout }) {
-  const [summary, setSummary] = useState(null);
-  const [byDepartment, setByDepartment] = useState([]);
-  const [byType, setByType] = useState([]);
-  const [peakHours, setPeakHours] = useState([]);
-  const [trend, setTrend] = useState([]);
-
+  const [range, setRange] = useState("30d");
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [failed, setFailed] = useState({
-    summary: false,
-    byDepartment: false,
-    byType: false,
-    peakHours: false,
-    trend: false,
-  });
-  const [reloadKey, setReloadKey] = useState(0);
-  const [range, setRange] = useState("7");
+  const [error, setError] = useState("");
 
-  // Load all five datasets in parallel. A failed call keeps any data it had.
-  useEffect(() => {
-    const controller = new AbortController();
-    const { signal } = controller;
-
-    async function loadAll() {
-      setRefreshing(true);
-
-      const [s, d, t, p, tr] = await Promise.all([
-        request("/api/admin/reports/summary", signal, isObject),
-        request("/api/admin/reports/by-department", signal, Array.isArray),
-        request("/api/admin/reports/by-resource-type", signal, Array.isArray),
-        request("/api/admin/reports/peak-hours", signal, Array.isArray),
-        request("/api/admin/reports/booking-trend?days=7", signal, Array.isArray),
-      ]);
-
-      if (signal.aborted) return;
-
-      if (s.ok) setSummary(s.data);
-      if (d.ok) setByDepartment(d.data);
-      if (t.ok) setByType(t.data);
-      if (p.ok) setPeakHours(p.data);
-      if (tr.ok) setTrend(tr.data);
-
-      setFailed({
-        summary: !s.ok,
-        byDepartment: !d.ok,
-        byType: !t.ok,
-        peakHours: !p.ok,
-        trend: !tr.ok,
-      });
-      setLoading(false);
-      setRefreshing(false);
-    }
-
-    loadAll();
-    return () => controller.abort();
-  }, [reloadKey]);
-
-  const retry = () => setReloadKey((k) => k + 1);
-
-  const failedCount = Object.values(failed).filter(Boolean).length;
-  const allFailed = failedCount === 5;
-  const partialFailed = failedCount > 0 && !allFailed;
-
-  // Derived chart data
-  const trendMax = calcMax(trend, "count");
-  const peakMax = calcMax(peakHours, "count");
-  const typeTotal = byType.reduce((sum, t) => sum + (Number(t.totalBookings) || 0), 0);
-
-  const peakHourKey =
-    summary?.peakHour ??
-    (peakMax > 0 ? peakHours.find((h) => Number(h.count) === peakMax)?.hour : undefined);
-
-  const cardClass = "rounded-xl border border-slate-200 bg-white p-5 print:break-inside-avoid";
-  const linkClass =
-    "rounded hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600";
-  const outlineBtn =
-    "inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 " +
-    "hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600";
-
-  const retryButton = (tone) => (
-    <button
-      type="button"
-      onClick={retry}
-      disabled={refreshing}
-      className={`inline-flex items-center gap-2 self-start rounded-lg px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 disabled:cursor-not-allowed disabled:opacity-70 sm:self-auto ${
-        tone === "red"
-          ? "bg-indigo-600 text-white hover:bg-indigo-700 focus-visible:ring-offset-2"
-          : "border border-amber-300 bg-white text-amber-800 hover:bg-amber-100"
-      }`}
-    >
-      {refreshing && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-      Retry
-    </button>
+  const load = useCallback(
+    async (signal) => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await fetch(`/api/admin/reports?range=${range}`, {
+          headers: { "X-Role": "Admin" },
+          signal,
+        });
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+        const json = await res.json();
+        setData(json);
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        setError("Couldn't load reports.");
+      } finally {
+        if (!signal || !signal.aborted) setLoading(false);
+      }
+    },
+    [range]
   );
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 print:bg-white">
-      {/* Top bar */}
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white print:hidden">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link
-            to="/admin"
-            className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
-              SC
-            </span>
-            <span className="text-sm font-semibold">Smart Campus</span>
-            <span className="hidden border-l border-slate-200 pl-3 text-xs text-slate-500 sm:block">
-              Admin Panel
-            </span>
-          </Link>
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
 
-          <div className="flex items-center gap-3">
+  function exportCsv() {
+    if (!data) return;
+    const lines = [
+      ["Metric", "Value"],
+      ["Range", data.range],
+      ["Total Bookings", data.totalBookings],
+      ["Confirmed", data.confirmedBookings],
+      ["Cancelled", data.cancelledBookings],
+      ["Utilization Rate (%)", data.utilizationRate],
+      ["Average Duration (min)", data.avgDuration],
+      ["Peak Hour", data.peakHour ?? "—"],
+      [],
+      ["Trend Date", "Bookings"],
+      ...(data.trend || []).map((t) => [String(t.date), t.count]),
+      [],
+      ["Hour", "Bookings"],
+      ...(data.hourly || []).map((h) => [`${h.hour}:00`, h.count]),
+      [],
+      ["Resource Type", "Bookings"],
+      ...(data.byResourceType || []).map((r) => [r.name, r.count]),
+      [],
+      ["Department", "Bookings"],
+      ...(data.byDepartment || []).map((d) => [d.name, d.count]),
+    ];
+    const csv = lines.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `smart-campus-report-${range}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const peakHourLabel =
+    data?.peakHour != null
+      ? `${String(data.peakHour).padStart(2, "0")}:00 – ${String(data.peakHour + 1).padStart(2, "0")}:00`
+      : "—";
+
+  const hourlyData =
+    data?.hourly?.map((h) => ({ label: `${String(h.hour).padStart(2, "0")}:00`, count: h.count })) || [];
+
+  const typeData =
+    data?.byResourceType?.map((t) => ({ label: t.name, count: t.count })) || [];
+
+  const deptData =
+    data?.byDepartment?.map((d) => ({ label: d.name, count: d.count })) || [];
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800">
+      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <Link to="/admin" className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">SC</span>
+            <span className="hidden text-sm font-semibold sm:block">Smart Campus</span>
+            <span className="hidden border-l border-slate-200 pl-3 text-xs text-slate-500 md:block">Admin Panel</span>
+          </Link>
+          <div className="flex items-center gap-2">
             <div className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
-              Admin
-              {user?.userId && (
-                <span className="hidden font-normal text-indigo-600 sm:inline">
-                  {" "}
-                  &middot; {user.userId}
-                </span>
-              )}
+              Admin {user?.userId && <span className="text-indigo-600">· {user.userId}</span>}
             </div>
             <button
               type="button"
               onClick={onLogout}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
             >
-              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
@@ -288,49 +213,19 @@ export default function AdminReportsPage({ user, onLogout }) {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="mb-5 print:hidden">
+        <nav aria-label="Breadcrumb" className="mb-5">
           <ol className="flex flex-wrap items-center gap-1 text-sm text-slate-500">
             <li>
-              <Link to="/admin" className={linkClass}>
+              <Link to="/admin" className="rounded hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600">
                 Admin
               </Link>
             </li>
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            <li aria-current="page" className="font-medium text-slate-800">
-              Reports
-            </li>
+            <ChevronRight className="h-4 w-4" />
+            <li aria-current="page" className="font-medium text-slate-800">Reports</li>
           </ol>
         </nav>
 
-        {/* Error banners */}
-        {allFailed && !loading && (
-          <div
-            role="alert"
-            className="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between print:hidden"
-          >
-            <div className="flex items-center gap-2 text-sm text-red-700">
-              <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
-              Couldn&apos;t load reports. Retry.
-            </div>
-            {retryButton("red")}
-          </div>
-        )}
-        {partialFailed && (
-          <div
-            role="alert"
-            className="mb-5 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between print:hidden"
-          >
-            <div className="flex items-center gap-2 text-sm text-amber-800">
-              <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
-              Some reports couldn&apos;t be loaded. Retry.
-            </div>
-            {retryButton("amber")}
-          </div>
-        )}
-
-        {/* Page header */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs uppercase text-slate-500">Analytics</p>
             <h1 className="text-3xl font-bold">Reports &amp; Analytics</h1>
@@ -338,308 +233,111 @@ export default function AdminReportsPage({ user, onLogout }) {
               Utilization trends, peak hours, and department-wise statistics.
             </p>
           </div>
-
-          <div className="flex flex-col print:hidden">
-            <label htmlFor="date-range" className="mb-1 text-xs text-slate-500">
-              Date range
-            </label>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="range" className="text-xs text-slate-500">Date range</label>
             <select
-              id="date-range"
+              id="range"
               value={range}
               onChange={(e) => setRange(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
             >
-              <option value="7">Last 7 days</option>
-              <option value="30" disabled>
-                Last 30 days (coming soon)
-              </option>
-              <option value="all" disabled>
-                All time (coming soon)
-              </option>
+              {RANGES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
             </select>
           </div>
         </div>
 
-        {/* Stats row */}
-        <section
-          aria-label="Report summary"
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        >
+        {error && (
+          <div role="alert" className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <span className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 shrink-0" /> {error}
+            </span>
+            <button onClick={() => load()} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+              Retry
+            </button>
+          </div>
+        )}
+
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {loading ? (
-            [0, 1, 2, 3].map((i) => <SkeletonBlock key={i} className="h-36" />)
+            [0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-36 animate-pulse rounded-xl bg-slate-200" />
+            ))
           ) : (
             <>
-              <StatCard
-                icon={CalendarCheck}
-                value={summary ? Number(summary.totalBookings).toLocaleString("en-IN") : "\u2013"}
-                label="Total Bookings"
-                hint={
-                  summary &&
-                  summary.completedBookings != null &&
-                  summary.cancelledBookings != null
-                    ? `${summary.completedBookings} completed \u00B7 ${summary.cancelledBookings} cancelled`
-                    : undefined
-                }
-              />
-              <StatCard
-                icon={TrendingUp}
-                value={summary ? `${summary.utilizationRate}%` : "\u2013"}
-                label="Utilization Rate"
-              />
-              <StatCard
-                icon={Clock}
-                value={summary ? formatHour(summary.peakHour) : "\u2013"}
-                label="Peak Hour"
-              />
-              <StatCard
-                icon={Timer}
-                value={summary ? String(summary.avgBookingDuration) : "\u2013"}
-                suffix="hrs"
-                label="Avg. Duration"
-              />
+              <StatCard icon={BarChart3} value={data?.totalBookings} label="Total Bookings" />
+              <StatCard icon={TrendingUp} value={data?.utilizationRate} label="Utilization Rate" suffix="%" />
+              <StatCard icon={Clock} value={peakHourLabel} label="Peak Hour" />
+              <StatCard icon={Timer} value={data?.avgDuration} label="Avg. Duration" suffix=" min" />
             </>
           )}
         </section>
 
-        {/* Chart 1: booking trend */}
-        <section aria-labelledby="trend-heading" className={`${cardClass} mt-6`}>
-          <div className="mb-4 flex items-baseline gap-2">
-            <h2 id="trend-heading" className="flex items-center gap-2 text-sm font-semibold">
-              <BarChart3 className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-              Booking Trend
-            </h2>
-            <span className="text-xs text-slate-500">Last 7 days</span>
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-indigo-600" />
+            <h2 className="text-sm font-semibold">Booking Trend</h2>
+            <span className="text-xs text-slate-500">· {RANGES.find((r) => r.value === range)?.label}</span>
           </div>
-
           {loading ? (
-            <SkeletonBlock className="h-64" />
-          ) : trend.length === 0 || trendMax === 0 ? (
-            <EmptyMessage>
-              {failed.trend
-                ? "Trend data is unavailable right now."
-                : "No booking trend data available."}
-            </EmptyMessage>
+            <div className="h-56 animate-pulse rounded bg-slate-200" />
           ) : (
-            <div className="flex gap-2">
-              {/* y-axis */}
-              <div
-                className="relative w-7 shrink-0 text-right text-xs text-slate-500"
-                style={{ height: `${TREND_BAR_AREA_PX + TREND_LABEL_ROOM_PX}px` }}
-                aria-hidden="true"
-              >
-                <span
-                  className="absolute right-0 -translate-y-1/2"
-                  style={{ top: `${TREND_LABEL_ROOM_PX}px` }}
-                >
-                  {trendMax}
-                </span>
-                <span className="absolute bottom-0 right-0 translate-y-1/2">0</span>
-              </div>
-
-              {/* bars */}
-              <div className="relative flex-1">
-                <div
-                  className="absolute left-0 right-0 border-t border-dashed border-slate-200"
-                  style={{ top: `${TREND_LABEL_ROOM_PX}px` }}
-                  aria-hidden="true"
-                />
-                <ul
-                  className="flex items-end gap-1.5 border-b border-slate-200 sm:gap-3"
-                  style={{ height: `${TREND_BAR_AREA_PX + TREND_LABEL_ROOM_PX}px` }}
-                >
-                  {trend.map((day) => {
-                    const count = Number(day.count) || 0;
-                    const label = `${formatDateShort(day.date)}: ${count} bookings`;
-                    return (
-                      <li
-                        key={day.date}
-                        aria-label={label}
-                        className="flex min-w-0 flex-1 flex-col items-center justify-end"
-                      >
-                        <span className="mb-1 text-xs font-medium">{count}</span>
-                        <div
-                          title={label}
-                          className="w-full max-w-[44px] rounded-t-md bg-indigo-500 hover:bg-indigo-600"
-                          style={{ height: `${percent(count, trendMax) * (TREND_BAR_AREA_PX / 100)}px` }}
-                        />
-                      </li>
-                    );
-                  })}
-                </ul>
-                <ul className="mt-2 flex gap-1.5 sm:gap-3" aria-hidden="true">
-                  {trend.map((day) => (
-                    <li
-                      key={day.date}
-                      className="min-w-0 flex-1 text-center text-[10px] text-slate-500 sm:text-xs"
-                    >
-                      {formatDateShort(day.date)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            <LineChart data={data?.trend || []} />
           )}
         </section>
 
-        {/* Chart 2: peak hours + resource types */}
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <section aria-labelledby="peak-heading" className={cardClass}>
-            <h2 id="peak-heading" className="mb-4 flex items-center gap-2 text-sm font-semibold">
-              <Activity className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-              Peak Hours
-            </h2>
-
+          <section className="rounded-xl border border-slate-200 bg-white p-5">
+            <h2 className="mb-4 text-sm font-semibold">Peak Hours</h2>
             {loading ? (
-              <SkeletonBlock className="h-64" />
-            ) : peakHours.length === 0 ? (
-              <EmptyMessage>
-                {failed.peakHours ? "Peak-hour data is unavailable right now." : "No peak-hour data yet."}
-              </EmptyMessage>
+              <div className="h-40 animate-pulse rounded bg-slate-200" />
             ) : (
-              <ul className="space-y-2">
-                {peakHours.map((h) => {
-                  const count = Number(h.count) || 0;
-                  const isPeak = peakHourKey !== undefined && h.hour === peakHourKey;
-                  return (
-                    <li key={h.hour} className="flex items-center gap-3">
-                      <span className="w-16 shrink-0 text-xs text-slate-600">{formatHour(h.hour)}</span>
-                      <div className="h-6 flex-1 rounded-md bg-slate-100 sm:h-7">
-                        <div
-                          title={`${formatHour(h.hour)}: ${count} bookings`}
-                          className={`h-full rounded-r-md ${
-                            isPeak ? "bg-indigo-700" : "bg-gradient-to-r from-indigo-400 to-indigo-600"
-                          }`}
-                          style={{ width: `${percent(count, peakMax)}%` }}
-                        />
-                      </div>
-                      <span className="flex w-16 shrink-0 items-center justify-end gap-1.5 text-xs">
-                        <span className="font-medium">{count}</span>
-                        {isPeak && (
-                          <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">
-                            Peak
-                          </span>
-                        )}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+              <BarChart data={hourlyData} />
             )}
           </section>
-
-          <section aria-labelledby="type-heading" className={cardClass}>
-            <h2 id="type-heading" className="mb-4 text-sm font-semibold">
-              By Resource Type
-            </h2>
-
+          <section className="rounded-xl border border-slate-200 bg-white p-5">
+            <h2 className="mb-4 text-sm font-semibold">By Resource Type</h2>
             {loading ? (
-              <SkeletonBlock className="h-64" />
-            ) : byType.length === 0 ? (
-              <EmptyMessage>
-                {failed.byType ? "Resource type data is unavailable right now." : "No resource type data yet."}
-              </EmptyMessage>
+              <div className="h-40 animate-pulse rounded bg-slate-200" />
             ) : (
-              <>
-                <ul className="space-y-5">
-                  {byType.map((t) => {
-                    const count = Number(t.totalBookings) || 0;
-                    const pct = Math.round(percent(count, typeTotal));
-                    const Icon = getTypeIcon(t.typeName);
-                    return (
-                      <li key={t.typeName}>
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="flex items-center gap-2 text-sm font-medium">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
-                              <Icon className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-                            </span>
-                            {t.typeName}
-                          </span>
-                          <span className="text-sm font-semibold">{count}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <ProgressBar
-                            value={pct}
-                            fillClass={TYPE_FILL[getTypeKey(t.typeName)]}
-                            label={`${t.typeName} share of bookings`}
-                          />
-                          <span className="w-10 shrink-0 text-right text-xs text-slate-500">{pct}%</span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <p className="mt-5 border-t border-slate-200 pt-3 text-sm text-slate-600">
-                  Total: <span className="font-semibold">{typeTotal}</span> bookings
-                </p>
-              </>
+              <BarChart data={typeData} color="bg-emerald-500" />
             )}
           </section>
         </div>
 
-        {/* Chart 3: department utilization */}
-        <section aria-labelledby="dept-heading" className={`${cardClass} mt-6`}>
-          <h2 id="dept-heading" className="mb-2 text-sm font-semibold">
-            Department Utilization
-          </h2>
-
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-4 text-sm font-semibold">Department Utilization</h2>
           {loading ? (
-            <SkeletonBlock className="h-48" />
-          ) : byDepartment.length === 0 ? (
-            <EmptyMessage>
-              {failed.byDepartment ? "Department data is unavailable right now." : "No department data yet."}
-            </EmptyMessage>
+            <div className="h-40 animate-pulse rounded bg-slate-200" />
           ) : (
-            <ul>
-              {byDepartment.map((d) => {
-                const rate = Number(d.utilizationRate) || 0;
-                return (
-                  <li key={d.departmentName} className="border-b border-slate-200 py-4 last:border-b-0 last:pb-0">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium">{d.departmentName}</span>
-                      <span className="text-xs text-slate-500">
-                        {d.totalBookings} bookings &middot; {rate}%
-                      </span>
-                    </div>
-                    <ProgressBar
-                      value={rate}
-                      fillClass="bg-indigo-500"
-                      label={`${d.departmentName} utilization`}
-                    />
-                  </li>
-                );
-              })}
-            </ul>
+            <BarChart data={deptData} color="bg-amber-500" />
           )}
         </section>
 
-        {/* Actions */}
-        <div className="mt-6 flex flex-wrap items-center gap-3 print:hidden">
-          <span title="Coming soon">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-2">
             <button
               type="button"
-              disabled
-              aria-label="Export as CSV (coming soon)"
-              className={`${outlineBtn} cursor-not-allowed opacity-60 hover:bg-white`}
+              onClick={exportCsv}
+              disabled={!data}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Export as CSV
+              <Download className="h-4 w-4" /> Export as CSV
             </button>
-          </span>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            aria-label="Print report"
-            className={outlineBtn}
-          >
-            <Printer className="h-4 w-4" aria-hidden="true" />
-            Print
-          </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              <Printer className="h-4 w-4" /> Print
+            </button>
+          </div>
           <Link
             to="/admin"
-            className="ml-auto inline-flex items-center gap-1.5 rounded text-sm font-medium text-indigo-600 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700"
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to Dashboard
+            <ArrowLeft className="h-4 w-4" /> Back to Dashboard
           </Link>
         </div>
       </main>
