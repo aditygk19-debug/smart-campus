@@ -8,17 +8,17 @@
 USE smartcampus;
 
 -- ------------------------------------------------------------
--- 1. BOOKINGS: add Priority and WaitlistPosition if missing
+-- 1. bookings: add Priority and WaitlistPosition if missing
 -- ------------------------------------------------------------
 
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = 'smartcampus'
-    AND TABLE_NAME = 'BOOKINGS'
+    AND TABLE_NAME = 'bookings'
     AND COLUMN_NAME = 'Priority'
 );
 SET @sql := IF(@col_exists = 0,
-  'ALTER TABLE BOOKINGS ADD COLUMN Priority INT DEFAULT 2',
+  'ALTER TABLE bookings ADD COLUMN Priority INT DEFAULT 2',
   'SELECT ''Priority already exists'' AS msg'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -26,20 +26,20 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @col_exists := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = 'smartcampus'
-    AND TABLE_NAME = 'BOOKINGS'
+    AND TABLE_NAME = 'bookings'
     AND COLUMN_NAME = 'WaitlistPosition'
 );
 SET @sql := IF(@col_exists = 0,
-  'ALTER TABLE BOOKINGS ADD COLUMN WaitlistPosition INT NULL',
+  'ALTER TABLE bookings ADD COLUMN WaitlistPosition INT NULL',
   'SELECT ''WaitlistPosition already exists'' AS msg'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ------------------------------------------------------------
--- 2. NOTIFICATIONS table
+-- 2. notifications table
 -- ------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS NOTIFICATIONS (
+CREATE TABLE IF NOT EXISTS notifications (
   NotificationId INT NOT NULL AUTO_INCREMENT,
   UserId INT NOT NULL,
   BookingId INT NULL,
@@ -49,16 +49,16 @@ CREATE TABLE IF NOT EXISTS NOTIFICATIONS (
   PRIMARY KEY (NotificationId),
   KEY idx_user_read (UserId, IsRead),
   CONSTRAINT fk_notif_user FOREIGN KEY (UserId)
-    REFERENCES USERS(UserId) ON DELETE CASCADE,
+    REFERENCES users(UserId) ON DELETE CASCADE,
   CONSTRAINT fk_notif_booking FOREIGN KEY (BookingId)
-    REFERENCES BOOKINGS(BookingId) ON DELETE SET NULL
+    REFERENCES bookings(BookingId) ON DELETE SET NULL
 );
 
 -- ------------------------------------------------------------
--- 3. AUDIT_LOG table
+-- 3. audit_log table
 -- ------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS AUDIT_LOG (
+CREATE TABLE IF NOT EXISTS audit_log (
   AuditId INT NOT NULL AUTO_INCREMENT,
   UserId INT NULL,
   Action VARCHAR(64) NOT NULL,
@@ -111,7 +111,7 @@ BEGIN
     START TRANSACTION;
 
     SELECT COUNT(*) INTO v_user_count
-    FROM USERS
+    FROM users
     WHERE UserId = p_UserId AND Status = 'Active';
 
     IF v_user_count = 0 THEN
@@ -120,7 +120,7 @@ BEGIN
     END IF;
 
     SELECT Status INTO v_resource_status
-    FROM RESOURCES
+    FROM resources
     WHERE ResourceId = p_ResourceId
     FOR UPDATE;
 
@@ -135,7 +135,7 @@ BEGIN
     END IF;
 
     SELECT COUNT(*) INTO v_slot_count
-    FROM TIME_SLOT
+    FROM time_slot
     WHERE SlotId = p_SlotId;
 
     IF v_slot_count = 0 THEN
@@ -144,7 +144,7 @@ BEGIN
     END IF;
 
     SELECT COUNT(*) INTO v_booking_count
-    FROM BOOKINGS
+    FROM bookings
     WHERE ResourceId = p_ResourceId
       AND SlotId = p_SlotId
       AND BookingDate = p_BookingDate
@@ -155,14 +155,14 @@ BEGIN
         SET MESSAGE_TEXT = 'Resource already booked for this slot and date';
     END IF;
 
-    INSERT INTO BOOKINGS
+    INSERT INTO bookings
     (UserId, ResourceId, SlotId, BookingDate, Purpose, Status, Priority)
     VALUES
     (p_UserId, p_ResourceId, p_SlotId, p_BookingDate, p_Purpose, 'Confirmed', COALESCE(p_Priority, 2));
 
     SET v_new_id = LAST_INSERT_ID();
 
-    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
+    INSERT INTO audit_log (UserId, Action, EntityType, EntityId, NewValue)
     VALUES (p_UserId, 'CREATE_BOOKING', 'BOOKING', v_new_id,
             CONCAT('resource=', p_ResourceId, ' date=', p_BookingDate));
 
@@ -185,7 +185,7 @@ BEGIN
     START TRANSACTION;
 
     SELECT Status, UserId INTO v_status, v_userId
-    FROM BOOKINGS
+    FROM bookings
     WHERE BookingId = p_BookingId
     FOR UPDATE;
 
@@ -199,14 +199,14 @@ BEGIN
         SET MESSAGE_TEXT = 'Booking is already cancelled';
     END IF;
 
-    UPDATE BOOKINGS
+    UPDATE bookings
     SET Status = 'Cancelled'
     WHERE BookingId = p_BookingId;
 
-    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, OldValue, NewValue)
+    INSERT INTO audit_log (UserId, Action, EntityType, EntityId, OldValue, NewValue)
     VALUES (v_userId, 'CANCEL_BOOKING', 'BOOKING', p_BookingId, v_status, 'Cancelled');
 
-    INSERT INTO NOTIFICATIONS (UserId, BookingId, Message)
+    INSERT INTO notifications (UserId, BookingId, Message)
     VALUES (v_userId, p_BookingId,
             CONCAT('Your booking #', p_BookingId, ' has been cancelled.'));
 
@@ -238,7 +238,7 @@ BEGIN
     START TRANSACTION;
 
     SELECT COUNT(*) INTO v_user_count
-    FROM USERS
+    FROM users
     WHERE UserId = p_UserId AND Status = 'Active';
 
     IF v_user_count = 0 THEN
@@ -247,7 +247,7 @@ BEGIN
     END IF;
 
     SELECT COUNT(*) INTO v_slot_count
-    FROM TIME_SLOT
+    FROM time_slot
     WHERE SlotId = p_SlotId;
 
     IF v_slot_count = 0 THEN
@@ -256,7 +256,7 @@ BEGIN
     END IF;
 
     IF EXISTS (
-        SELECT 1 FROM BOOKINGS
+        SELECT 1 FROM bookings
         WHERE UserId = p_UserId
           AND ResourceId = p_ResourceId
           AND SlotId = p_SlotId
@@ -267,7 +267,7 @@ BEGIN
         SET MESSAGE_TEXT = 'You already have a request for this resource and slot';
     END IF;
 
-    INSERT INTO BOOKINGS
+    INSERT INTO bookings
     (UserId, ResourceId, SlotId, BookingDate, Purpose, Status, Priority)
     VALUES
     (p_UserId, p_ResourceId, p_SlotId, p_BookingDate, p_Purpose,
@@ -276,7 +276,7 @@ BEGIN
     SET v_new_id = LAST_INSERT_ID();
 
     SELECT COUNT(*) INTO v_position
-    FROM BOOKINGS
+    FROM bookings
     WHERE ResourceId = p_ResourceId
       AND SlotId = p_SlotId
       AND BookingDate = p_BookingDate
@@ -286,11 +286,11 @@ BEGIN
         OR (Priority = p_Priority AND BookingId < v_new_id)
       );
 
-    UPDATE BOOKINGS
+    UPDATE bookings
     SET WaitlistPosition = v_position + 1
     WHERE BookingId = v_new_id;
 
-    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
+    INSERT INTO audit_log (UserId, Action, EntityType, EntityId, NewValue)
     VALUES (p_UserId, 'WAITLIST_BOOKING', 'BOOKING', v_new_id,
             CONCAT('position=', v_position + 1, ' priority=', p_Priority));
 
@@ -319,7 +319,7 @@ BEGIN
     START TRANSACTION;
 
     SELECT BookingId, UserId INTO v_winner_id, v_winner_user
-    FROM BOOKINGS
+    FROM bookings
     WHERE ResourceId = p_ResourceId
       AND SlotId = p_SlotId
       AND BookingDate = p_BookingDate
@@ -333,16 +333,16 @@ BEGIN
         SELECT NULL AS PromotedBookingId, NULL AS WinnerUserId,
                'No waitlist entries' AS Message;
     ELSE
-        UPDATE BOOKINGS
+        UPDATE bookings
         SET Status = 'Confirmed', WaitlistPosition = NULL
         WHERE BookingId = v_winner_id;
 
-        INSERT INTO NOTIFICATIONS (UserId, BookingId, Message)
+        INSERT INTO notifications (UserId, BookingId, Message)
         VALUES (v_winner_user, v_winner_id,
                 CONCAT('Good news! Your waitlisted booking #',
                        v_winner_id, ' is now confirmed.'));
 
-        INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
+        INSERT INTO audit_log (UserId, Action, EntityType, EntityId, NewValue)
         VALUES (v_winner_user, 'PROMOTE_WAITLIST', 'BOOKING',
                 v_winner_id, 'Confirmed');
 
@@ -368,15 +368,15 @@ BEGIN
 
     START TRANSACTION;
 
-    IF EXISTS (SELECT 1 FROM USERS WHERE UserId = p_UserId) THEN
+    IF EXISTS (SELECT 1 FROM users WHERE UserId = p_UserId) THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'User already exists';
     END IF;
 
-    INSERT INTO USERS (UserId, Password, Role, Status)
+    INSERT INTO users (UserId, Password, Role, Status)
     VALUES (p_UserId, p_Password, p_Role, 'Active');
 
-    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
+    INSERT INTO audit_log (UserId, Action, EntityType, EntityId, NewValue)
     VALUES (p_UserId, 'ADD_USER', 'USER', p_UserId, CONCAT('role=', p_Role));
 
     COMMIT;
@@ -398,17 +398,17 @@ BEGIN
 
     START TRANSACTION;
 
-    IF NOT EXISTS (SELECT 1 FROM USERS WHERE UserId = p_UserId) THEN
+    IF NOT EXISTS (SELECT 1 FROM users WHERE UserId = p_UserId) THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'User does not exist';
     END IF;
 
-    UPDATE USERS
+    UPDATE users
     SET Role = COALESCE(p_Role, Role),
         Status = COALESCE(p_Status, Status)
     WHERE UserId = p_UserId;
 
-    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, NewValue)
+    INSERT INTO audit_log (UserId, Action, EntityType, EntityId, NewValue)
     VALUES (p_UserId, 'UPDATE_USER', 'USER', p_UserId,
             CONCAT('role=', p_Role, ' status=', p_Status));
 
@@ -427,14 +427,14 @@ BEGIN
 
     START TRANSACTION;
 
-    IF NOT EXISTS (SELECT 1 FROM USERS WHERE UserId = p_UserId) THEN
+    IF NOT EXISTS (SELECT 1 FROM users WHERE UserId = p_UserId) THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'User does not exist';
     END IF;
 
-    DELETE FROM USERS WHERE UserId = p_UserId;
+    DELETE FROM users WHERE UserId = p_UserId;
 
-    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId, OldValue)
+    INSERT INTO audit_log (UserId, Action, EntityType, EntityId, OldValue)
     VALUES (p_UserId, 'DELETE_USER', 'USER', p_UserId, 'deleted');
 
     COMMIT;
@@ -455,14 +455,14 @@ BEGIN
 
     START TRANSACTION;
 
-    IF NOT EXISTS (SELECT 1 FROM USERS WHERE UserId = p_UserId) THEN
+    IF NOT EXISTS (SELECT 1 FROM users WHERE UserId = p_UserId) THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'User does not exist';
     END IF;
 
-    UPDATE USERS SET Password = p_NewPassword WHERE UserId = p_UserId;
+    UPDATE users SET Password = p_NewPassword WHERE UserId = p_UserId;
 
-    INSERT INTO AUDIT_LOG (UserId, Action, EntityType, EntityId)
+    INSERT INTO audit_log (UserId, Action, EntityType, EntityId)
     VALUES (p_UserId, 'RESET_PASSWORD', 'USER', p_UserId);
 
     COMMIT;
@@ -476,23 +476,23 @@ DELIMITER ;
 -- 5. Seed admin if none exists
 -- ------------------------------------------------------------
 
-INSERT INTO USERS (UserId, Password, Role, Status)
+INSERT INTO users (UserId, Password, Role, Status)
 SELECT 99999, 'admin123', 'Admin', 'Active'
-WHERE NOT EXISTS (SELECT 1 FROM USERS WHERE Role = 'Admin');
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE Role = 'Admin');
 
 -- ------------------------------------------------------------
--- 6. Fix BOOKINGS constraints to allow multiple waitlist rows
+-- 6. Fix bookings constraints to allow multiple waitlist rows
 -- ------------------------------------------------------------
 
 -- 6a. Drop the old CHECK that only allowed Pending/Confirmed/Cancelled
 SET @chk_exists := (
   SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
   WHERE TABLE_SCHEMA = 'smartcampus'
-    AND TABLE_NAME = 'BOOKINGS'
+    AND TABLE_NAME = 'bookings'
     AND CONSTRAINT_NAME = 'bookings_chk_1'
 );
 SET @sql := IF(@chk_exists > 0,
-  'ALTER TABLE BOOKINGS DROP CHECK bookings_chk_1',
+  'ALTER TABLE bookings DROP CHECK bookings_chk_1',
   'SELECT ''bookings_chk_1 already removed'' AS msg'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -501,12 +501,12 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @uq_exists := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = 'smartcampus'
-    AND TABLE_NAME = 'BOOKINGS'
+    AND TABLE_NAME = 'bookings'
     AND INDEX_NAME = 'ResourceId'
     AND NON_UNIQUE = 0
 );
 SET @sql := IF(@uq_exists > 0,
-  'ALTER TABLE BOOKINGS DROP FOREIGN KEY bookings_ibfk_2',
+  'ALTER TABLE bookings DROP FOREIGN KEY bookings_ibfk_2',
   'SELECT ''FK already adjusted'' AS msg'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -514,12 +514,12 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @uq_exists := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = 'smartcampus'
-    AND TABLE_NAME = 'BOOKINGS'
+    AND TABLE_NAME = 'bookings'
     AND INDEX_NAME = 'ResourceId'
     AND NON_UNIQUE = 0
 );
 SET @sql := IF(@uq_exists > 0,
-  'ALTER TABLE BOOKINGS DROP INDEX ResourceId',
+  'ALTER TABLE bookings DROP INDEX ResourceId',
   'SELECT ''UNIQUE KEY already removed'' AS msg'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -528,11 +528,11 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @fk_exists := (
   SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
   WHERE TABLE_SCHEMA = 'smartcampus'
-    AND TABLE_NAME = 'BOOKINGS'
+    AND TABLE_NAME = 'bookings'
     AND CONSTRAINT_NAME = 'bookings_ibfk_2'
 );
 SET @sql := IF(@fk_exists = 0,
-  'ALTER TABLE BOOKINGS ADD CONSTRAINT bookings_ibfk_2 FOREIGN KEY (ResourceId) REFERENCES RESOURCES(ResourceId)',
+  'ALTER TABLE bookings ADD CONSTRAINT bookings_ibfk_2 FOREIGN KEY (ResourceId) REFERENCES resources(ResourceId)',
   'SELECT ''FK already present'' AS msg'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -541,11 +541,11 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @chk_new := (
   SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
   WHERE TABLE_SCHEMA = 'smartcampus'
-    AND TABLE_NAME = 'BOOKINGS'
+    AND TABLE_NAME = 'bookings'
     AND CONSTRAINT_NAME = 'bookings_chk_status'
 );
 SET @sql := IF(@chk_new = 0,
-  'ALTER TABLE BOOKINGS ADD CONSTRAINT bookings_chk_status CHECK (Status IN (''Pending'',''Confirmed'',''Cancelled'',''Waitlisted'',''Rejected''))',
+  'ALTER TABLE bookings ADD CONSTRAINT bookings_chk_status CHECK (Status IN (''Pending'',''Confirmed'',''Cancelled'',''Waitlisted'',''Rejected''))',
   'SELECT ''bookings_chk_status already present'' AS msg'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
